@@ -11,6 +11,7 @@ const GRID_OFFSET = Vector2(100, 100)
 @onready var board_container: Node2D = $BoardContainer
 
 # UI References
+@onready var level_label: Label = $HUD/RightPanel/VBox/LevelLabel
 @onready var score_bar: ProgressBar = $HUD/RightPanel/VBox/ScoreProgressBar
 @onready var score_text: Label = $HUD/RightPanel/VBox/ScoreProgressBar/OverlayLabel
 @onready var turns_label: Label = $HUD/RightPanel/VBox/TurnsLabel
@@ -184,6 +185,8 @@ func is_valid_coord(coord: Vector2i) -> bool:
 
 #region Input Handling
 var highlight_rect: Line2D = null
+var row_highlight: ColorRect = null
+var col_highlight: ColorRect = null
 
 func handle_click_start(grid_pos: Vector2i, pos: Vector2):
 	if current_state == State.IDLE:
@@ -191,7 +194,7 @@ func handle_click_start(grid_pos: Vector2i, pos: Vector2):
 		input_start_pos = pos
 		current_state = State.DRAGGING
 		
-		# Create Highlight Visual
+		# Create Highlight Visual for selected tile
 		var tile = board[grid_pos.x][grid_pos.y]
 		highlight_rect = Line2D.new()
 		highlight_rect.default_color = Color(1, 0.8, 0.2, 0.8) # Gold/Yellow
@@ -201,6 +204,24 @@ func handle_click_start(grid_pos: Vector2i, pos: Vector2):
 		highlight_rect.points = [Vector2(-s, -s), Vector2(s, -s), Vector2(s, s), Vector2(-s, s)]
 		highlight_rect.position = tile.position
 		board_container.add_child(highlight_rect)
+		
+		# Create Row Highlight
+		row_highlight = ColorRect.new()
+		row_highlight.color = Color(1, 1, 1, 0.2) # White tint
+		var row_pos = grid_to_pixel(grid_pos.x, 0)
+		row_highlight.position = Vector2(row_pos.x - TILE_SIZE/2, row_pos.y - TILE_SIZE/2)
+		row_highlight.size = Vector2(COLS * TILE_SIZE, TILE_SIZE)
+		row_highlight.z_index = 1 # Above background, below tiles
+		add_child(row_highlight)
+		
+		# Create Column Highlight
+		col_highlight = ColorRect.new()
+		col_highlight.color = Color(1, 1, 1, 0.2) # White tint
+		var col_pos = grid_to_pixel(0, grid_pos.y)
+		col_highlight.position = Vector2(col_pos.x - TILE_SIZE/2, col_pos.y - TILE_SIZE/2)
+		col_highlight.size = Vector2(TILE_SIZE, ROWS * TILE_SIZE)
+		col_highlight.z_index = 1 # Above background, below tiles
+		add_child(col_highlight)
 		
 		tile.z_index = 10 # Bring to front
 		
@@ -264,6 +285,14 @@ func handle_click_release(pos: Vector2):
 		if highlight_rect:
 			highlight_rect.queue_free()
 			highlight_rect = null
+		
+		# Clean up row/column highlights
+		if row_highlight:
+			row_highlight.queue_free()
+			row_highlight = null
+		if col_highlight:
+			col_highlight.queue_free()
+			col_highlight = null
 		
 		# Determine if valid move will happen
 		var valid_move = is_valid_coord(end_grid_pos) and selected_tile_coord != Vector2i(-1, -1) and selected_tile_coord != end_grid_pos and (selected_tile_coord.x == end_grid_pos.x or selected_tile_coord.y == end_grid_pos.y)
@@ -395,7 +424,7 @@ func process_match_group(group: Array):
 	if group.is_empty(): return
 	var type = group[0].tile_type
 	var match_count = group.size()
-	var efficiency = 1.0 + (match_count - 3) * 0.25
+	var efficiency = (1.25)**(match_count - 3)
 	
 	var base_score = 0
 	if level_manager:
@@ -483,6 +512,7 @@ func refill_board():
 #region UI Updates
 func update_ui():
 	print("UI UPDATE: Score: %s | Turns: %s | Mult: %s | Mana: %s" % [score, turns, multiplier, mana])
+	if level_label and level_manager: level_label.text = "Level: %d" % level_manager.current_level
 	if score_text and level_manager:
 		score_text.text = "%d / %d" % [int(score), level_manager.get_current_target()]
 	if score_bar: score_bar.value = score

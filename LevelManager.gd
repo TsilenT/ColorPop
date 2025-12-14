@@ -46,7 +46,7 @@ func setup_run():
 	current_level = 1
 	# Do NOT reset gold here as it persists
 	save_game() # Save start of run state
-	randomize_tile_scores()
+	randomize_tile_scores() # Initial randomization
 
 func randomize_tile_scores():
 	# Pool: 1 Low, 2 Medium, 1 High
@@ -65,7 +65,7 @@ func randomize_tile_scores():
 		Tile.Type.BLACK: get_black_tile_score()  # Bad tile
 	}
 	
-	print("Run Initialized. Tile Scores: ", tile_scores)
+	print("Level %d Tile Scores: %s" % [current_level, tile_scores])
 
 func get_current_target() -> int:
 	return 1000 + (current_level * 5000)
@@ -78,6 +78,7 @@ func complete_level() -> int:
 	gold += reward
 	save_game() # Save progress
 	current_level += 1
+	randomize_tile_scores() # Randomize for next level
 	return reward
 
 func get_black_tile_score() -> int:
