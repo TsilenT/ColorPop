@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="grad5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:rgb(100,200,255);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgb(0,100,255);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <path d="M32 4 C32 4 56 30 56 44 A24 24 0 0 1 8 44 C8 30 32 4 32 4 Z" fill="url(#grad5)" stroke="rgb(0,50,150)" stroke-width="2" stroke-linejoin="round"/>
+</svg>
