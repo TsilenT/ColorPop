@@ -53,17 +53,25 @@ func get_score_text(score: int) -> String:
 	return str(score)
 
 func get_current_target() -> int:
-	return 1000 + (current_level * 5000)
+	return (current_level * 5000)*(1.05**(current_level-1))
 
 func get_tile_score(type: Tile.Type) -> int:
 	return tile_scores.get(type, 0)
 
-func complete_level() -> int:
-	var reward = 100 * current_level
-	save_manager.add_gold(reward)
+func complete_level(final_score: int, turns_left: int) -> Dictionary:
+	# Gold from Score (2% of Score)
+	var gold_reward = int(final_score * 0.02)
+	
+	# Diamonds from Turns (0.5 per turn * level, floor)
+	var diam_reward = floor(turns_left * 0.5 * current_level)
+	
+	save_manager.add_gold(gold_reward)
+	save_manager.add_diamonds(diam_reward)
+	
 	current_level += 1
 	randomize_tile_scores() # Randomize for next level
-	return reward
+	
+	return { "gold": gold_reward, "diamonds": diam_reward }
 
 func get_black_tile_score() -> int:
 	# Base -50, scales by -50 per level

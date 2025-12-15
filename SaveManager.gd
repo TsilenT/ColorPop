@@ -17,7 +17,8 @@ var data = {
 	},
 	"settings": {
 		"highlight_enabled": true
-	}
+	},
+	"diamonds": 0
 }
 
 func _init():
@@ -41,6 +42,7 @@ func load_game():
 			var loaded_data = json.data
 			# Merge loaded data with defaults to handle missing keys
 			if "gold" in loaded_data: data["gold"] = int(loaded_data["gold"])
+			if "diamonds" in loaded_data: data["diamonds"] = int(loaded_data["diamonds"])
 			
 			# Merge Upgrades
 			if "upgrades" in loaded_data:
@@ -57,6 +59,14 @@ func get_gold() -> int:
 
 func add_gold(amount: int):
 	data["gold"] += amount
+	save_game()
+
+func get_diamonds() -> int:
+	return data.get("diamonds", 0)
+
+func add_diamonds(amount: int):
+	if not "diamonds" in data: data["diamonds"] = 0
+	data["diamonds"] += amount
 	save_game()
 
 func spend_gold(amount: int) -> bool:

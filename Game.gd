@@ -18,6 +18,7 @@ var GRID_OFFSET = Vector2(100, 100)
 @onready var turns_label: Label = $HUD/UIContainer/RightPanel/VBox/TurnsLabel
 @onready var multi_label: Label = $HUD/UIContainer/RightPanel/VBox/MultiLabel
 @onready var gold_label: Label = $HUD/UIContainer/Header/GoldContainer/GoldLabel
+@onready var diam_label: Label = $HUD/UIContainer/Header/DiamondContainer/DiamondLabel
 @onready var mana_label: Label = $HUD/UIContainer/BottomPanel/ManaLabel
 @onready var spell_button: Button = $HUD/UIContainer/BottomPanel/SpellButton
 @onready var shop_button: TextureButton = $HUD/UIContainer/Header/Buttons/ShopButton
@@ -541,7 +542,7 @@ func process_match_group(group: Array):
 			gain *= (1.0 + (up_level * 0.1))
 			
 		multiplier += gain
-		add_log("Matched %d GREEN! Mult +%.1f -> %.1fx" % [match_count, gain, multiplier])
+		add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
 	
 	if type == Tile.Type.BLUE:
 		var gain = match_count * 5 * efficiency
@@ -598,8 +599,9 @@ func update_ui():
 		score_text.text = "%d / %d" % [int(score), level_manager.get_current_target()]
 	if score_bar: score_bar.value = score
 	if turns_label: turns_label.text = "Turns: %d" % turns
-	if multi_label: multi_label.text = "Multiplier: %.1fx" % multiplier
-	if gold_label and level_manager: gold_label.text = "Gold: %d" % level_manager.save_manager.get_gold()
+	if multi_label: multi_label.text = "Multiplier: %.2fx" % multiplier
+	if gold_label and level_manager: gold_label.text = str(level_manager.save_manager.get_gold())
+	if diam_label and level_manager: diam_label.text = str(level_manager.save_manager.get_diamonds())
 	var max_mana = get_max_mana()
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]
 	
@@ -676,9 +678,23 @@ func update_legend():
 func check_game_over():
 	# Win Condition (Level Complete)
 	if level_manager and score >= level_manager.get_current_target():
-		var reward = level_manager.complete_level()
-		add_log("Level Complete! +%d Gold" % reward)
-		await get_tree().create_timer(1.0).timeout
+		# Get rewards
+		var turns_left = turns
+		var final_score = int(score)
+		var rewards = level_manager.complete_level(final_score, turns_left)
+		
+		# Show Splash
+		var splash = preload("res://LevelComplete.tscn").instantiate()
+		$HUD.add_child(splash)
+		splash.setup(rewards, final_score, turns_left)
+		
+		current_state = State.PROCESSING
+		
+		# Wait for continue
+		await splash.continued
+		splash.queue_free()
+		
+		add_log("Level Complete! +%d Gold, +%d Diamonds" % [rewards["gold"], rewards["diamonds"]])
 		start_next_level()
 		current_state = State.IDLE
 		return

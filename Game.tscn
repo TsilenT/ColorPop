@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3 uid="uid://buq3l18x0i6x"]
+[gd_scene load_steps=10 format=3 uid="uid://buq3l18x0i6x"]
 
 [ext_resource type="Script" path="res://Game.gd" id="1_v43r7"]
 [ext_resource type="Texture2D" uid="uid://un46hps77icr" path="res://assets/icon_shop.svg" id="2_shop"]
 [ext_resource type="Texture2D" uid="uid://d4n2qo2us4wmq" path="res://assets/icon_gear.svg" id="3_gear"]
 [ext_resource type="Texture2D" uid="uid://rgw71d1eubcj" path="res://assets/icon_gold.svg" id="4_gold"]
+[ext_resource type="Texture2D" uid="uid://c2o5h48k4uiw8" path="res://assets/icon_diamond.svg" id="5_diamond"]
 
 [sub_resource type="Gradient" id="Gradient_Bg"]
 colors = PackedColorArray(0.101961, 0.101961, 0.180392, 1, 0.0509804, 0.0509804, 0.0901961, 1)
@@ -90,6 +91,25 @@ theme_override_constants/separation = 40
 [node name="Spacer" type="Control" parent="HUD/UIContainer/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="DiamondContainer" type="HBoxContainer" parent="HUD/UIContainer/Header"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="HUD/UIContainer/Header/DiamondContainer"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("5_diamond")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DiamondLabel" type="Label" parent="HUD/UIContainer/Header/DiamondContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.26, 0.8, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 32
+text = "0"
 
 [node name="GoldContainer" type="HBoxContainer" parent="HUD/UIContainer/Header"]
 layout_mode = 2

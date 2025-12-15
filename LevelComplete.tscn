@@ -1,0 +1,120 @@
+[gd_scene load_steps=3 format=3 uid="uid://c6j8l8x0i6x"]
+
+[ext_resource type="Script" path="res://LevelComplete.gd" id="1_lc"]
+[ext_resource type="Texture2D" path="res://assets/icon_diamond.svg" id="2_diam"]
+
+[node name="LevelComplete" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_lc")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.8)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="Title" type="Label" parent="CenterContainer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 64
+text = "LEVEL COMPLETE!"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="CenterContainer/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="StatsContainer" type="GridContainer" parent="CenterContainer/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 40
+theme_override_constants/v_separation = 20
+columns = 2
+
+[node name="ScoreLabel" type="Label" parent="CenterContainer/VBox/StatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Score:"
+
+[node name="ScoreValue" type="Label" parent="CenterContainer/VBox/StatsContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0, 1)
+theme_override_font_sizes/font_size = 32
+text = "0"
+horizontal_alignment = 2
+
+[node name="TurnsLabel" type="Label" parent="CenterContainer/VBox/StatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Turns Left:"
+
+[node name="TurnsValue" type="Label" parent="CenterContainer/VBox/StatsContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "0"
+horizontal_alignment = 2
+
+[node name="Spacer2" type="Control" parent="CenterContainer/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="RewardsTitle" type="Label" parent="CenterContainer/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 24
+text = "REWARDS"
+horizontal_alignment = 1
+
+[node name="GoldReward" type="Label" parent="CenterContainer/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0, 1)
+theme_override_font_sizes/font_size = 48
+text = "+0 Gold"
+horizontal_alignment = 1
+
+[node name="DiamondReward" type="HBoxContainer" parent="CenterContainer/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="CenterContainer/VBox/DiamondReward"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("2_diam")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="CenterContainer/VBox/DiamondReward"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.26, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 48
+text = "+0"
+
+[node name="Spacer3" type="Control" parent="CenterContainer/VBox"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+
+[node name="ContinueLabel" type="Label" parent="CenterContainer/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.5)
+theme_override_font_sizes/font_size = 24
+text = "- Tap to Continue -"
+horizontal_alignment = 1
