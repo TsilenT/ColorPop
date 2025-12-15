@@ -35,6 +35,22 @@ func randomize_tile_scores():
 	}
 	
 	print("Level %d Tile Scores: %s" % [current_level, tile_scores])
+	
+	discovered_types = {}
+
+var discovered_types: Dictionary = {}
+
+func mark_discovered(type: Tile.Type):
+	discovered_types[type] = true
+
+func is_type_discovered(type: Tile.Type) -> bool:
+	return discovered_types.get(type, false)
+
+func get_score_text(score: int) -> String:
+	if score == SCORE_LOW: return "LOW"
+	elif score == SCORE_MED: return "MED"
+	elif score == SCORE_HIGH: return "HIGH"
+	return str(score)
 
 func get_current_target() -> int:
 	return 1000 + (current_level * 5000)

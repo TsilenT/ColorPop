@@ -20,8 +20,8 @@ var upgrades = [
 	{ "id": "spell_cost", "name": "Spell Cost", "base_cost": 150, "desc": "-5 Spell Cost" },
 	{ "id": "mult_red", "name": "Red Mult", "base_cost": 200, "desc": "+10% Red Score" },
 	{ "id": "mult_yellow", "name": "Yellow Mult", "base_cost": 200, "desc": "+10% Yellow Score" },
-	{ "id": "mult_green", "name": "Green Mult", "base_cost": 200, "desc": "+10% Green Score" },
-	{ "id": "mult_blue", "name": "Blue Mult", "base_cost": 200, "desc": "+10% Blue Score" },
+	{ "id": "mult_green", "name": "Green Mult", "base_cost": 200, "desc": "+10% Mult Gain" },
+	{ "id": "mult_blue", "name": "Blue Mult", "base_cost": 200, "desc": "+10% Mana Gain" },
 	{ "id": "mult_purple", "name": "Purple Mult", "base_cost": 200, "desc": "+10% Purple Score" },
 	{ "id": "mult_orange", "name": "Orange Mult", "base_cost": 200, "desc": "+10% Orange Score" },
 	# Black tile usually bad, no upgrade for now
@@ -75,7 +75,6 @@ func create_upgrade_card(data):
 	var btn = Button.new()
 	btn.text = "Buy (%d)" % int(cost)
 	btn.pressed.connect(func(): _on_buy_pressed(data["id"], int(cost)))
-	# removed disabled check to allow "Not Enough" feedback
 	vbox.add_child(btn)
 	
 	return panel

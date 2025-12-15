@@ -22,12 +22,6 @@ var GRID_OFFSET = Vector2(100, 100)
 @onready var spell_button: Button = $HUD/UIContainer/BottomPanel/SpellButton
 @onready var shop_button: Button = $HUD/UIContainer/TopRightPanel/VBox/ShopButton
 
-# Legacy internal shop nodes removed
-var shop_panel = null 
-var shop_close_btn = null
-var btn_upgrade_mana = null
-var btn_upgrade_spell = null
-var btn_upgrade_score = null
 @onready var reset_button: Button = $HUD/UIContainer/RightPanel/VBox/ResetButton
 @onready var log_label: RichTextLabel = $HUD/UIContainer/RightPanel/VBox/LogPanel/LogLabel
 #endregion
@@ -46,6 +40,9 @@ var green_matched_this_turn: bool = false
 
 enum State { IDLE, DRAGGING, PROCESSING, CASTING }
 var current_state: State = State.IDLE
+# Legend UI
+var legend_labels: Dictionary = {}
+var legend_box: GridContainer
 #endregion
 
 @export var SettingsScene: PackedScene = preload("res://Settings.tscn")
@@ -78,6 +75,8 @@ func _ready():
 	resize_game()
 	
 	update_ui() # Initial UI Set
+	setup_legend_ui()
+	update_legend()
 	
 func resize_game():
 	var vp_size = get_viewport_rect().size
@@ -192,8 +191,6 @@ func spawn_tile(r: int, c: int, type_override = null):
 	tile.position = grid_to_pixel(r, c)
 	board_container.add_child(tile)
 	board[r][c] = tile
-	
-	# Manual _ready removed to avoid double initialization error
 #endregion
 
 func get_weighted_random_type() -> Tile.Type:
@@ -496,6 +493,7 @@ func process_match_group(group: Array):
 	
 	var base_score = 0
 	if level_manager:
+		level_manager.mark_discovered(type)
 		base_score = level_manager.get_tile_score(type)
 	
 	var type_name = "Unknown"
@@ -517,8 +515,6 @@ func process_match_group(group: Array):
 		match type:
 			Tile.Type.RED: type_str = "mult_red"
 			Tile.Type.YELLOW: type_str = "mult_yellow"
-			Tile.Type.GREEN: type_str = "mult_green"
-			Tile.Type.BLUE: type_str = "mult_blue"
 			Tile.Type.PURPLE: type_str = "mult_purple"
 			Tile.Type.ORANGE: type_str = "mult_orange"
 		
@@ -533,11 +529,23 @@ func process_match_group(group: Array):
 	if type == Tile.Type.GREEN:
 		green_matched_this_turn = true
 		var gain = 0.1 * match_count * efficiency
+		
+		# Apply Upgrade
+		if level_manager:
+			var up_level = level_manager.save_manager.get_upgrade_level("mult_green")
+			gain *= (1.0 + (up_level * 0.1))
+			
 		multiplier += gain
 		add_log("Green Match! Mult +%.1f -> %.1fx" % [gain, multiplier])
 	
 	if type == Tile.Type.BLUE:
 		var gain = match_count * 5 * efficiency
+		
+		# Apply Upgrade
+		if level_manager:
+			var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
+			gain *= (1.0 + (up_level * 0.1))
+			
 		mana = min(get_max_mana(), mana + gain)
 		add_log("Mana +%d" % int(gain))
 #endregion
@@ -594,6 +602,59 @@ func update_ui():
 		var cost = get_spell_cost()
 		spell_button.text = "Cast Catalyst (%d)" % cost
 		spell_button.disabled = (mana < cost)
+	
+	update_legend()
+
+func setup_legend_ui():
+	# Insert into VBox
+	var vbox = $HUD/UIContainer/RightPanel/VBox
+	if not vbox: return
+	
+	legend_box = GridContainer.new()
+	legend_box.columns = 2
+	legend_box.add_theme_constant_override("h_separation", 10)
+	
+	# Insert before LogPanel (which acts as a filler usually)
+	# LogPanel is at index 4 in scene (Level, Score, Turns, Multi, Log)
+	vbox.add_child(legend_box)
+	vbox.move_child(legend_box, 4)
+	
+	var types = [Tile.Type.RED, Tile.Type.YELLOW, Tile.Type.PURPLE, Tile.Type.ORANGE]
+	for type in types:
+		var lbl = Label.new()
+		lbl.add_theme_font_size_override("font_size", 16)
+		legend_box.add_child(lbl)
+		legend_labels[type] = lbl
+
+func update_legend():
+	if legend_labels.is_empty() or not level_manager: return
+	
+	var names = {
+		Tile.Type.RED: "RED",
+		Tile.Type.YELLOW: "YLW",
+		Tile.Type.PURPLE: "PUR",
+		Tile.Type.ORANGE: "ORG"
+	}
+	
+	for type in legend_labels:
+		var lbl = legend_labels[type]
+		var type_name = names.get(type, "???")
+		var val_text = "???"
+		
+		# Color logic
+		var col = Color.WHITE
+		match type:
+			Tile.Type.RED: col = Color(1, 0.4, 0.4)
+			Tile.Type.YELLOW: col = Color(1, 1, 0.4)
+			Tile.Type.PURPLE: col = Color(0.8, 0.4, 1)
+			Tile.Type.ORANGE: col = Color(1, 0.6, 0.2)
+			
+		if level_manager.is_type_discovered(type):
+			var s = level_manager.get_tile_score(type)
+			val_text = level_manager.get_score_text(s)
+		
+		lbl.text = "%s: %s" % [type_name, val_text]
+		lbl.modulate = col
 #endregion
 
 #region Game Flow
@@ -637,14 +698,6 @@ func try_cast_spell(grid_pos: Vector2i):
 			
 		tile.tile_type = target_type
 		# Update Visual
-		# tile._ready() # Removed as per previous fix, but we actually MIGHT need it here for texture update? 
-		# Actually, since tile is already in tree, _ready won't auto-run. We DO need to force update the visual if we change type.
-		# Let's call the logic that updates appearance. Tile.gd _ready does that. 
-		# But we know calling _ready directly can be unsafe if it does other things. 
-		# Tile.gd _ready is clean (just sets texture/modulate). Let's check Tile.gd again? 
-		# Wait, I removed the _read() call in spawn, but here the node is fully active. It should be safe to call _ready() to refresh visuals.
-		# Or better, extract visual update to a function. 
-		# For now, I'll assume _ready() is safe here as the node is definitely in tree.
 		tile._ready() 
 		
 		print("Spell Cast! Converted Black to High Value Tile.")
