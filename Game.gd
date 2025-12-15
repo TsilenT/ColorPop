@@ -710,6 +710,7 @@ func try_cast_spell(grid_pos: Vector2i):
 		var target_type = Tile.Type.RED
 		if level_manager:
 			target_type = level_manager.get_highest_value_tile_type()
+			level_manager.mark_discovered(target_type)
 			
 		tile.tile_type = target_type
 		# Update Visual
