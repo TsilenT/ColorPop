@@ -45,17 +45,34 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_ShopBg")
 
 [node name="TitleLabel" type="Label" parent="Panel"]
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -150.0
+anchors_preset = 10
+anchor_right = 1.0
 offset_top = 20.0
-offset_right = 150.0
-offset_bottom = 70.0
+offset_bottom = 60.0
 grow_horizontal = 2
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 32
 text = "ITEM SHOP"
 horizontal_alignment = 1
+
+[node name="Tabs" type="HBoxContainer" parent="Panel"]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 70.0
+offset_right = 440.0
+offset_bottom = 110.0
+theme_override_constants/separation = 20
+
+[node name="GoldTab" type="Button" parent="Panel/Tabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.84, 0, 1)
+text = "GOLD SHOP"
+
+[node name="DiamondTab" type="Button" parent="Panel/Tabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.26, 0.8, 1, 1)
+text = "DIAMOND SHOP"
 
 [node name="GoldLabel" type="Label" parent="Panel"]
 layout_mode = 1
@@ -70,6 +87,22 @@ grow_horizontal = 0
 theme_override_colors/font_color = Color(1, 0.84, 0, 1)
 theme_override_font_sizes/font_size = 32
 text = "Gold: 0"
+horizontal_alignment = 2
+
+[node name="DiamondLabel" type="Label" parent="Panel"]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -250.0
+offset_top = 30.0
+offset_right = -110.0
+offset_bottom = 70.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.26, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Diamonds: 0"
 horizontal_alignment = 2
 
 [node name="CloseButtonContainer" type="Control" parent="Panel"]
@@ -105,7 +138,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 50.0
-offset_top = 100.0
+offset_top = 130.0
 offset_right = -50.0
 offset_bottom = -50.0
 grow_horizontal = 2

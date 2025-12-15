@@ -79,10 +79,15 @@ func get_black_tile_score() -> int:
 
 
 
-func purchase_upgrade(key: String, cost: int) -> bool:
-	if save_manager.spend_gold(cost):
-		save_manager.increment_upgrade(key)
-		return true
+func purchase_upgrade(key: String, cost: int, currency: String = "gold") -> bool:
+	if currency == "diamonds":
+		if save_manager.spend_diamonds(cost):
+			save_manager.increment_upgrade(key)
+			return true
+	else:
+		if save_manager.spend_gold(cost):
+			save_manager.increment_upgrade(key)
+			return true
 	return false
 
 func get_highest_value_tile_type() -> Tile.Type:

@@ -59,7 +59,10 @@ func _ready():
 	get_window().move_to_center()
 	randomize()
 	if spell_button:
-		spell_button.pressed.connect(activate_spell_mode)
+		spell_button.pressed.connect(activate_spell_mode.bind("catalyst"))
+	
+	if harvest_button:
+		harvest_button.pressed.connect(activate_spell_mode.bind("harvest"))
 		
 	# Shop Connections
 	if shop_button: shop_button.pressed.connect(open_shop)
@@ -113,8 +116,9 @@ func open_shop():
 	shop.close_requested.connect(func(): 
 		shop.queue_free()
 		get_tree().paused = false
+		update_ui()
 	)
-	
+
 func open_settings():
 	var settings = SettingsScene.instantiate()
 	add_child(settings)
@@ -125,22 +129,30 @@ func open_settings():
 		get_tree().paused = false
 	)
 
-func setup_background_grid():
-	var grid_bg = $BoardFrame/GridBackground
-	if grid_bg:
-		for i in range(ROWS * COLS):
-			var cell = ColorRect.new()
-			cell.custom_minimum_size = Vector2(70, 70)
-			# Checkerboard pattern
-			var row = i / COLS
-			var col = i % COLS
-			if (row + col) % 2 == 0:
-				cell.color = Color(0.15, 0.15, 0.15, 0.5)
-			else:
-				cell.color = Color(0.2, 0.2, 0.2, 0.5)
-			# Add border/spacing visual by shrinking rect inside container?
-			# Simpler: just color distinct from background
-			grid_bg.add_child(cell)
+@onready var harvest_button: Button = $HUD/UIContainer/BottomPanel/HarvestButton
+var active_spell_type: String = "catalyst"
+
+func activate_spell_mode(mode: String = "catalyst"):
+	if turns <= 0: return # Locked if Game Over
+	
+	clear_harvest_preview() # Cleanup previous visuals
+	
+	active_spell_type = mode
+	
+	var cost = 0
+	if mode == "catalyst": cost = get_spell_cost()
+	elif mode == "harvest": cost = 100
+	
+	if mana >= cost:
+		current_state = State.CASTING
+		if mode == "catalyst":
+			print("Select a BLACK tile to transform!")
+			add_log("Select a BLACK tile!")
+		elif mode == "harvest":
+			print("Select Row to Harvest!")
+			add_log("Select Row to Harvest!")
+
+
 
 func start_next_level():
 	var target = level_manager.get_current_target()
@@ -169,6 +181,29 @@ func reset_game():
 	if turns_label: turns_label.text = "Turns: %d" % turns
 
 #region Board Management
+func setup_background_grid():
+	var grid_bg = $BoardFrame/GridBackground
+	if not grid_bg: return
+	
+	# Clear existing
+	for child in grid_bg.get_children():
+		child.queue_free()
+		
+	# Create checkerboard
+	for i in range(ROWS * COLS):
+		var cell = ColorRect.new()
+		cell.custom_minimum_size = Vector2(TILE_SIZE, TILE_SIZE)
+		
+		var r = i / COLS
+		var c = i % COLS
+		
+		if (r + c) % 2 == 0:
+			cell.color = Color(0.15, 0.15, 0.15, 0.8) # Dark
+		else:
+			cell.color = Color(0.2, 0.2, 0.2, 0.8) # Slightly lighter
+			
+		grid_bg.add_child(cell)
+
 func initialize_board():
 	for child in board_container.get_children():
 		child.queue_free()
@@ -199,22 +234,32 @@ func spawn_tile(r: int, c: int, type_override = null):
 #endregion
 
 func get_weighted_random_type() -> Tile.Type:
-	# Probability Table (Total Weight = 13)
-	# 0-1: RED, 2-3: YELLOW, 4-5: PURPLE, 6-7: ORANGE (Regulars)
-	# 8: GREEN (Mult), 9-10: BLUE (Mana), 11-12: BLACK (Bad)
-	# (NOTE: Previous logic had weights: Red < 2 (0,1), Yellow < 4 (2,3), Purple < 6 (4,5), Orange < 8 (6,7))
-	# Green < 9 (8), Blue < 11 (9,10), Black (11,12... Wait. randi() % 13 means 0..12)
-	# My previous code was % 12 or 13? Let's check view_file. It said % 13.
-	# 0-1: RED, 2-3: YELLOW, 4-5: PURPLE, 6-7: ORANGE (Regulars)
-	# 8: GREEN (Mult), 9-10: BLUE (Mana), 11: BLACK (Bad)
-	var roll = randi() % 12
-	if roll < 2: return Tile.Type.RED 
-	elif roll < 4: return Tile.Type.YELLOW
-	elif roll < 6: return Tile.Type.PURPLE
-	elif roll < 8: return Tile.Type.ORANGE
-	elif roll < 9: return Tile.Type.GREEN # Weight 1
-	elif roll < 11: return Tile.Type.BLUE # Weight 2
-	else: return Tile.Type.BLACK # Weight 1
+	var weights = {
+		Tile.Type.RED: 1.0,
+		Tile.Type.YELLOW: 1.0,
+		Tile.Type.GREEN: 0.5, 
+		Tile.Type.BLUE: 1.0,
+		Tile.Type.PURPLE: 1.0,
+		Tile.Type.ORANGE: 1.0,
+		Tile.Type.BLACK: 0.5
+	}
+	
+	# Cinderella Upgrade Check
+	if level_manager and level_manager.save_manager.get_upgrade_level("cinderella") > 0:
+		weights[Tile.Type.GREEN] = weights[Tile.Type.GREEN]* 1.25 # +25% likelihood
+		
+	var total_weight = 0.0
+	for w in weights.values():
+		total_weight += w
+		
+	var roll = randf() * total_weight
+	var current = 0.0
+	for type in weights:
+		current += weights[type]
+		if roll <= current:
+			return type
+	
+	return Tile.Type.RED
 
 #region Helpers
 func add_log(msg: String):
@@ -240,8 +285,16 @@ func is_valid_coord(coord: Vector2i) -> bool:
 var highlight_rect: Line2D = null
 var row_highlight: ColorRect = null
 var col_highlight: ColorRect = null
+var harvest_highlight: ColorRect = null
 
-func handle_click_start(grid_pos: Vector2i, pos: Vector2):
+func handle_click(grid_pos: Vector2i, pos: Vector2):
+	if current_state == State.CASTING:
+		if active_spell_type == "catalyst":
+			try_cast_spell(grid_pos)
+		elif active_spell_type == "harvest":
+			try_cast_harvest(grid_pos.x) # Row is x
+		return
+		
 	if current_state == State.IDLE:
 		# Clean up any orphaned highlights first (defensive)
 		if highlight_rect:
@@ -294,9 +347,6 @@ func handle_click_start(grid_pos: Vector2i, pos: Vector2):
 			add_child(col_highlight)
 		
 		tile.z_index = 10 # Bring to front
-		
-	elif current_state == State.CASTING:
-		try_cast_spell(grid_pos)
 
 func _input(event):
 	if turns <= 0 and current_state != State.PROCESSING:
@@ -306,18 +356,44 @@ func _input(event):
 		if event.pressed:
 			var grid_pos = pixel_to_grid(event.position)
 			if is_valid_coord(grid_pos):
-				handle_click_start(grid_pos, event.position)
+				handle_click(grid_pos, event.position)
 		else:
 			handle_click_release(event.position)
 	
-	elif event is InputEventMouseMotion and current_state == State.DRAGGING:
-		if selected_tile_coord != Vector2i(-1, -1):
-			var tile = board[selected_tile_coord.x][selected_tile_coord.y]
-			tile.position = event.position
+	elif event is InputEventMouseMotion:
+		if current_state == State.DRAGGING:
+			if selected_tile_coord != Vector2i(-1, -1):
+				var tile = board[selected_tile_coord.x][selected_tile_coord.y]
+				tile.position = event.position
+				
+				var target_grid = pixel_to_grid(event.position)
+				if is_valid_coord(target_grid):
+					update_preview(selected_tile_coord, target_grid)
+		elif current_state == State.CASTING and active_spell_type == "harvest":
+			var grid_pos = pixel_to_grid(event.position)
+			update_harvest_preview(grid_pos)
+
+func update_harvest_preview(grid_pos: Vector2i):
+	if is_valid_coord(grid_pos):
+		# Create if missing
+		if not harvest_highlight:
+			harvest_highlight = ColorRect.new()
+			harvest_highlight.color = Color(1.0, 0.0, 0.0, 0.3) # Red transparent
+			harvest_highlight.z_index = 5 # Below tiles (10) but above bg
+			add_child(harvest_highlight)
 			
-			var target_grid = pixel_to_grid(event.position)
-			if is_valid_coord(target_grid):
-				update_preview(selected_tile_coord, target_grid)
+		# Position over Row
+		var row_pos = grid_to_pixel(grid_pos.x, 0)
+		harvest_highlight.position = Vector2(row_pos.x - TILE_SIZE/2, row_pos.y - TILE_SIZE/2)
+		harvest_highlight.size = Vector2(COLS * TILE_SIZE, TILE_SIZE)
+		harvest_highlight.visible = true
+	else:
+		if harvest_highlight: harvest_highlight.visible = false
+
+func clear_harvest_preview():
+	if harvest_highlight:
+		harvest_highlight.queue_free()
+		harvest_highlight = null
 
 func update_preview(start: Vector2i, curr: Vector2i):
 	# Reset all tiles to default positions first
@@ -494,7 +570,7 @@ func process_match_group(group: Array):
 	if group.is_empty(): return
 	var type = group[0].tile_type
 	var match_count = group.size()
-	var efficiency = (1.25)**(match_count - 3)
+	var efficiency = max(1.0, (1.25)**(match_count - 3))
 	
 	var base_score = 0
 	if level_manager:
@@ -606,9 +682,32 @@ func update_ui():
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]
 	
 	if spell_button:
+		# Dynamic Spell Button Logic
+		var selected_spell = "catalyst"
+		if level_manager and level_manager.save_manager.get_upgrade_level("harvest") > 0:
+			# If unlocked, we might need a way to switch. For now, let's assume separate buttons or a toggle.
+			# As per request: "just add a separate button if harvest is unlocked."
+			if harvest_button:
+				harvest_button.visible = true
+				if mana >= 100:
+					harvest_button.disabled = false
+					harvest_button.modulate = Color(0.6, 1.0, 0.6) # Green tint
+				else:
+					harvest_button.disabled = true
+					harvest_button.modulate = Color(1, 1, 1) # Default
+				harvest_button.text = "Cast Harvest (100)"
+		else:
+			if harvest_button: harvest_button.visible = false
+			
 		var cost = get_spell_cost()
 		spell_button.text = "Cast Catalyst (%d)" % cost
-		spell_button.disabled = (mana < cost)
+		if mana >= cost:
+			spell_button.disabled = false
+			spell_button.modulate = Color(0.6, 1.0, 0.6) # Green tint
+		else:
+			spell_button.disabled = true
+			spell_button.modulate = Color(1, 1, 1) # Default
+		spell_button.visible = true # Always visible if valid
 	
 	update_legend()
 
@@ -709,14 +808,45 @@ func check_game_over():
 #endregion
 
 #region Ability Logic
-func activate_spell_mode():
-	if turns <= 0: return # Locked if Game Over
+func try_cast_harvest(row_idx: int):
+	# Clear highlight immediately to avoid it getting stuck or overlapping
+	clear_harvest_preview()
+
+	var cost = 100
+	mana -= cost
 	
-	var cost = get_spell_cost()
-	if mana >= cost:
-		current_state = State.CASTING
-		print("Select a BLACK tile to transform!")
-		add_log("Select a BLACK tile!")
+	add_log("Harvesting Row %d!" % row_idx)
+	
+	# Collect tiles (using grid coordinates)
+	var row_tiles = []
+	for c in range(COLS):
+		if board[row_idx][c] != null:
+			row_tiles.append(board[row_idx][c])
+	
+	# Group by type
+	var groups = {}
+	for t in row_tiles:
+		if not groups.has(t.tile_type): groups[t.tile_type] = []
+		groups[t.tile_type].append(t)
+		
+	# Process each group as a match
+	# Note: This gives massive combo potential if row is diverse, or single big combo if uniform.
+	for type in groups:
+		if type != Tile.Type.BLACK: 
+			process_match_group(groups[type])
+	
+	# Remove all tiles
+	for t in row_tiles:
+		board[t.coordinates.x][t.coordinates.y] = null
+		t.queue_free()
+		
+	current_state = State.PROCESSING
+	apply_gravity()
+	refill_board()
+	
+	# Wait for animation
+	await get_tree().create_timer(0.6).timeout
+	resolve_matches()
 
 func try_cast_spell(grid_pos: Vector2i):
 	var tile = board[grid_pos.x][grid_pos.y]

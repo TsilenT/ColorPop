@@ -13,7 +13,9 @@ var data = {
 		"mult_green": 0,
 		"mult_blue": 0,
 		"mult_purple": 0,
-		"mult_orange": 0
+		"mult_orange": 0,
+		"harvest": 0,
+		"cinderella": 0
 	},
 	"settings": {
 		"highlight_enabled": true
@@ -23,6 +25,9 @@ var data = {
 
 func _init():
 	load_game()
+
+# ... (save_game/load_game omitted for brevity in match, but here fully)
+# Wait, I should match the block I see in view_file.
 
 func save_game():
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -72,6 +77,14 @@ func add_diamonds(amount: int):
 func spend_gold(amount: int) -> bool:
 	if data["gold"] >= amount:
 		data["gold"] -= amount
+		save_game()
+		return true
+	return false
+
+func spend_diamonds(amount: int) -> bool:
+	if not "diamonds" in data: data["diamonds"] = 0
+	if data["diamonds"] >= amount:
+		data["diamonds"] -= amount
 		save_game()
 		return true
 	return false

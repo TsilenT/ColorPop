@@ -8,53 +8,88 @@ signal upgrade_purchased(key: String, cost: int)
 @onready var gold_label: Label = $Panel/GoldLabel
 @onready var close_btn: Button = $Panel/CloseButtonContainer/CloseButton
 
-func _ready():
-	if close_btn:
-		close_btn.pressed.connect(func(): emit_signal("close_requested"))
+@onready var gold_tab: Button = $Panel/Tabs/GoldTab
+@onready var diam_tab: Button = $Panel/Tabs/DiamondTab
 
-var level_manager = null # Reference to LevelManager
+var level_manager = null
+var current_tab = "gold"
 
 # Upgrade Definitions
-var upgrades = [
+var gold_upgrades = [
 	{ "id": "mana_cap", "name": "Mana Cap", "base_cost": 100, "desc": "+10 Max Mana" },
-	{ "id": "spell_cost", "name": "Spell Cost", "base_cost": 150, "desc": "-5 Spell Cost" },
+	{ "id": "spell_cost", "name": "Spell Cost", "base_cost": 150, "desc": "-5 Catalyst Cost", "max": 8 },
 	{ "id": "mult_red", "name": "Red Mult", "base_cost": 200, "desc": "+10% Red Score" },
 	{ "id": "mult_yellow", "name": "Yellow Mult", "base_cost": 200, "desc": "+10% Yellow Score" },
 	{ "id": "mult_green", "name": "Green Mult", "base_cost": 200, "desc": "+10% Mult Gain" },
 	{ "id": "mult_blue", "name": "Blue Mult", "base_cost": 200, "desc": "+10% Mana Gain" },
 	{ "id": "mult_purple", "name": "Purple Mult", "base_cost": 200, "desc": "+10% Purple Score" },
 	{ "id": "mult_orange", "name": "Orange Mult", "base_cost": 200, "desc": "+10% Orange Score" },
-	# Black tile usually bad, no upgrade for now
 ]
+
+var diamond_upgrades = [
+	{ "id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlock Row Clear Spell", "max": 1, "currency": "diamonds" },
+	{ "id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds" }
+]
+
+func _ready():
+	if close_btn:
+		close_btn.pressed.connect(func(): emit_signal("close_requested"))
+	if gold_tab:
+		gold_tab.pressed.connect(switch_tab.bind("gold"))
+	if diam_tab:
+		diam_tab.pressed.connect(switch_tab.bind("diamonds"))
 
 func setup(lm):
 	level_manager = lm
+	if not current_tab: current_tab = "gold"
+	refresh_ui()
+
+func switch_tab(tab: String):
+	current_tab = tab
 	refresh_ui()
 
 func refresh_ui():
 	if not level_manager: return
 	
 	gold_label.text = "Gold: %d" % level_manager.save_manager.get_gold()
+	# Show/Hide correct label if needed, or assume both shown? 
+	# Original plan had Diamond Label separate.
+	# Let's verify labels in Shop.tscn. Assuming DiamondLabel exists.
+	var diam_label = $Panel/DiamondLabel
+	if diam_label:
+		diam_label.visible = (current_tab == "diamonds")
+		diam_label.text = "Diamonds: %d" % level_manager.save_manager.get_diamonds()
+	
+	gold_label.visible = (current_tab == "gold")
+	
+	# Tab Styling
+	if gold_tab: gold_tab.modulate = Color(1,1,1) if current_tab == "gold" else Color(0.5,0.5,0.5)
+	if diam_tab: diam_tab.modulate = Color(1,1,1) if current_tab == "diamonds" else Color(0.5,0.5,0.5)
 	
 	# Clear existing children
 	for child in grid_container.get_children():
 		child.queue_free()
 		
+	# Select List
+	var list = gold_upgrades
+	var currency_amount = level_manager.save_manager.get_gold()
+	if current_tab == "diamonds":
+		list = diamond_upgrades
+		currency_amount = level_manager.save_manager.get_diamonds()
+
 	# Rebuild Grid
-	for up in upgrades:
+	for up in list:
 		var card = UpgradeCardScene.instantiate()
 		grid_container.add_child(card)
 		
 		var lvl = level_manager.save_manager.get_upgrade_level(up["id"])
 		card.setup(up, lvl)
-		card.update_state(level_manager.save_manager.get_gold())
+		card.update_state(currency_amount)
 		
 		# Connect signal
 		card.buy_pressed.connect(_on_buy_pressed)
 
 var UpgradeCardScene = preload("res://UpgradeCard.tscn")
-
-# create_upgrade_card removed in favor of Scene instantiation
 
 @onready var feedback_label: Label = $FeedbackLabel
 
@@ -62,12 +97,15 @@ var UpgradeCardScene = preload("res://UpgradeCard.tscn")
 
 func _on_buy_pressed(key: String, cost: int):
 	if level_manager:
-		if level_manager.purchase_upgrade(key, cost):
+		var currency = "gold"
+		if current_tab == "diamonds": currency = "diamonds"
+		
+		if level_manager.purchase_upgrade(key, cost, currency):
 			show_feedback("Purchased!", Color.GREEN)
 			emit_signal("upgrade_purchased", key, cost)
 			refresh_ui()
 		else:
-			show_feedback("Not Enough Gold!", Color.RED)
+			show_feedback("Not Enough!", Color.RED)
 
 func show_feedback(text: String, color: Color):
 	if feedback_label:
