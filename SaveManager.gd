@@ -8,7 +8,12 @@ var data = {
 	"upgrades": {
 		"mana_cap": 0,
 		"spell_cost": 0,
-		"tile_mult": 0
+		"mult_red": 0,
+		"mult_yellow": 0,
+		"mult_green": 0,
+		"mult_blue": 0,
+		"mult_purple": 0,
+		"mult_orange": 0
 	},
 	"settings": {
 		"highlight_enabled": true
@@ -36,9 +41,14 @@ func load_game():
 			var loaded_data = json.data
 			# Merge loaded data with defaults to handle missing keys
 			if "gold" in loaded_data: data["gold"] = int(loaded_data["gold"])
-			if "upgrades" in loaded_data: data["upgrades"] = loaded_data["upgrades"]
+			
+			# Merge Upgrades
+			if "upgrades" in loaded_data:
+				for k in loaded_data["upgrades"]:
+					data["upgrades"][k] = loaded_data["upgrades"][k]
+					
+			# Merge Settings
 			if "settings" in loaded_data:
-				# Merge settings specifically to preserve defaults for new keys
 				for k in loaded_data["settings"]:
 					data["settings"][k] = loaded_data["settings"][k]
 

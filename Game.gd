@@ -528,7 +528,7 @@ func process_match_group(group: Array):
 	
 	score = max(0, score + match_score)
 	
-	if match_score > 0:
+	if match_score != 0:
 		add_log("Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)])
 	
 	if type == Tile.Type.GREEN:
@@ -626,9 +626,28 @@ func setup_legend_ui():
 	
 	var types = [Tile.Type.RED, Tile.Type.YELLOW, Tile.Type.PURPLE, Tile.Type.ORANGE]
 	for type in types:
+		var hbox = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 5)
+		
+		# Icon
+		var icon = TextureRect.new()
+		icon.custom_minimum_size = Vector2(32, 32)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		
+		var path = Tile.TEXTURE_PATHS.get(type, "")
+		if path != "":
+			icon.texture = load(path)
+		
+		hbox.add_child(icon)
+		
+		# Value Label
 		var lbl = Label.new()
 		lbl.add_theme_font_size_override("font_size", 16)
-		legend_box.add_child(lbl)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hbox.add_child(lbl)
+		
+		legend_box.add_child(hbox)
 		legend_labels[type] = lbl
 
 func update_legend():
@@ -643,23 +662,14 @@ func update_legend():
 	
 	for type in legend_labels:
 		var lbl = legend_labels[type]
-		var type_name = names.get(type, "???")
 		var val_text = "???"
 		
-		# Color logic
-		var col = Color.WHITE
-		match type:
-			Tile.Type.RED: col = Color(1, 0.4, 0.4)
-			Tile.Type.YELLOW: col = Color(1, 1, 0.4)
-			Tile.Type.PURPLE: col = Color(0.8, 0.4, 1)
-			Tile.Type.ORANGE: col = Color(1, 0.6, 0.2)
-			
 		if level_manager.is_type_discovered(type):
 			var s = level_manager.get_tile_score(type)
 			val_text = level_manager.get_score_text(s)
 		
-		lbl.text = "%s: %s" % [type_name, val_text]
-		lbl.modulate = col
+		lbl.text = val_text
+		lbl.modulate = Color.WHITE
 #endregion
 
 #region Game Flow
