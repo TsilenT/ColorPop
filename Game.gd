@@ -4,22 +4,23 @@ extends Node2D
 const COLS = 8
 const ROWS = 8
 const TILE_SIZE = 70
-const GRID_OFFSET = Vector2(100, 100)
+var GRID_OFFSET = Vector2(100, 100)
 
 #region Scene References
 @export var TileScene: PackedScene = preload("res://Tile.tscn")
 @onready var board_container: Node2D = $BoardContainer
 
 # UI References
-@onready var level_label: Label = $HUD/RightPanel/VBox/LevelLabel
-@onready var score_bar: ProgressBar = $HUD/RightPanel/VBox/ScoreProgressBar
-@onready var score_text: Label = $HUD/RightPanel/VBox/ScoreProgressBar/OverlayLabel
-@onready var turns_label: Label = $HUD/RightPanel/VBox/TurnsLabel
-@onready var multi_label: Label = $HUD/RightPanel/VBox/MultiLabel
-@onready var gold_label: Label = $HUD/TopRightPanel/VBox/GoldLabel
-@onready var mana_label: Label = $HUD/BottomPanel/ManaLabel
-@onready var spell_button: Button = $HUD/BottomPanel/SpellButton
-@onready var shop_button: Button = $HUD/TopRightPanel/VBox/ShopButton
+@onready var ui_container: Control = $HUD/UIContainer
+@onready var level_label: Label = $HUD/UIContainer/RightPanel/VBox/LevelLabel
+@onready var score_bar: ProgressBar = $HUD/UIContainer/RightPanel/VBox/ScoreProgressBar
+@onready var score_text: Label = $HUD/UIContainer/RightPanel/VBox/ScoreProgressBar/OverlayLabel
+@onready var turns_label: Label = $HUD/UIContainer/RightPanel/VBox/TurnsLabel
+@onready var multi_label: Label = $HUD/UIContainer/RightPanel/VBox/MultiLabel
+@onready var gold_label: Label = $HUD/UIContainer/TopRightPanel/VBox/GoldLabel
+@onready var mana_label: Label = $HUD/UIContainer/BottomPanel/ManaLabel
+@onready var spell_button: Button = $HUD/UIContainer/BottomPanel/SpellButton
+@onready var shop_button: Button = $HUD/UIContainer/TopRightPanel/VBox/ShopButton
 
 # Legacy internal shop nodes removed
 var shop_panel = null 
@@ -27,8 +28,8 @@ var shop_close_btn = null
 var btn_upgrade_mana = null
 var btn_upgrade_spell = null
 var btn_upgrade_score = null
-@onready var reset_button: Button = $HUD/RightPanel/VBox/ResetButton
-@onready var log_label: RichTextLabel = $HUD/RightPanel/VBox/LogPanel/LogLabel
+@onready var reset_button: Button = $HUD/UIContainer/RightPanel/VBox/ResetButton
+@onready var log_label: RichTextLabel = $HUD/UIContainer/RightPanel/VBox/LogPanel/LogLabel
 #endregion
 
 #region State Variables
@@ -47,6 +48,9 @@ enum State { IDLE, DRAGGING, PROCESSING, CASTING }
 var current_state: State = State.IDLE
 #endregion
 
+@export var SettingsScene: PackedScene = preload("res://Settings.tscn")
+@onready var settings_button: Button = $HUD/UIContainer/TopRightPanel/VBox/SettingsButton
+
 func _ready():
 	level_manager = LevelManager.new()
 	add_child(level_manager)
@@ -61,14 +65,61 @@ func _ready():
 		
 	# Shop Connections
 	if shop_button: shop_button.pressed.connect(open_shop)
-	# Legacy internal shop buttons removed
+	if settings_button: settings_button.pressed.connect(open_settings)
 	
 	if reset_button:
 		reset_button.pressed.connect(reset_game)
 		reset_button.visible = false
 	
 	setup_background_grid()
+	
+	# Handle Resizing
+	get_tree().root.size_changed.connect(resize_game)
+	resize_game()
+	
 	update_ui() # Initial UI Set
+	
+func resize_game():
+	var vp_size = get_viewport_rect().size
+	var target_width = 1280.0
+	var margin_x = max(0, (vp_size.x - target_width) / 2.0)
+	
+	# Update Board Visual
+	var board_frame = $BoardFrame
+	if board_frame:
+		board_frame.position.x = 45.0 + margin_x
+		
+	# Update Logic Offset
+	GRID_OFFSET.x = 100.0 + margin_x
+	
+	# Reposition existing tiles
+	if board_container:
+		for child in board_container.get_children():
+			if child.has_method("get_class"): # Basic check
+				# Re-calc position from grid coords if available
+				# Tiles have 'coordinates' property
+				if "coordinates" in child:
+					child.position = grid_to_pixel(child.coordinates.x, child.coordinates.y)
+	
+func open_shop():
+	var shop = preload("res://Shop.tscn").instantiate()
+	add_child(shop)
+	shop.setup(level_manager)
+	get_tree().paused = true
+	shop.close_requested.connect(func(): 
+		shop.queue_free()
+		get_tree().paused = false
+	)
+	
+func open_settings():
+	var settings = SettingsScene.instantiate()
+	add_child(settings)
+	settings.setup(level_manager)
+	get_tree().paused = true
+	settings.close_requested.connect(func():
+		settings.queue_free()
+		get_tree().paused = false
+	)
 
 func setup_background_grid():
 	var grid_bg = $BoardFrame/GridBackground
@@ -190,6 +241,17 @@ var col_highlight: ColorRect = null
 
 func handle_click_start(grid_pos: Vector2i, pos: Vector2):
 	if current_state == State.IDLE:
+		# Clean up any orphaned highlights first (defensive)
+		if highlight_rect:
+			highlight_rect.queue_free()
+			highlight_rect = null
+		if row_highlight:
+			row_highlight.queue_free()
+			row_highlight = null
+		if col_highlight:
+			col_highlight.queue_free()
+			col_highlight = null
+		
 		selected_tile_coord = grid_pos
 		input_start_pos = pos
 		current_state = State.DRAGGING
@@ -205,23 +267,29 @@ func handle_click_start(grid_pos: Vector2i, pos: Vector2):
 		highlight_rect.position = tile.position
 		board_container.add_child(highlight_rect)
 		
-		# Create Row Highlight
-		row_highlight = ColorRect.new()
-		row_highlight.color = Color(1, 1, 1, 0.2) # White tint
-		var row_pos = grid_to_pixel(grid_pos.x, 0)
-		row_highlight.position = Vector2(row_pos.x - TILE_SIZE/2, row_pos.y - TILE_SIZE/2)
-		row_highlight.size = Vector2(COLS * TILE_SIZE, TILE_SIZE)
-		row_highlight.z_index = 1 # Above background, below tiles
-		add_child(row_highlight)
-		
-		# Create Column Highlight
-		col_highlight = ColorRect.new()
-		col_highlight.color = Color(1, 1, 1, 0.2) # White tint
-		var col_pos = grid_to_pixel(0, grid_pos.y)
-		col_highlight.position = Vector2(col_pos.x - TILE_SIZE/2, col_pos.y - TILE_SIZE/2)
-		col_highlight.size = Vector2(TILE_SIZE, ROWS * TILE_SIZE)
-		col_highlight.z_index = 1 # Above background, below tiles
-		add_child(col_highlight)
+		# Check setting for extra highlights
+		var show_highlights = true
+		if level_manager and level_manager.save_manager:
+			show_highlights = level_manager.save_manager.get_setting("highlight_enabled", true)
+			
+		if show_highlights:
+			# Create Row Highlight
+			row_highlight = ColorRect.new()
+			row_highlight.color = Color(1, 1, 1, 0.2) # White tint
+			var row_pos = grid_to_pixel(grid_pos.x, 0)
+			row_highlight.position = Vector2(row_pos.x - TILE_SIZE/2, row_pos.y - TILE_SIZE/2)
+			row_highlight.size = Vector2(COLS * TILE_SIZE, TILE_SIZE)
+			row_highlight.z_index = 1 # Above background, below tiles
+			add_child(row_highlight)
+			
+			# Create Column Highlight
+			col_highlight = ColorRect.new()
+			col_highlight.color = Color(1, 1, 1, 0.2) # White tint
+			var col_pos = grid_to_pixel(0, grid_pos.y)
+			col_highlight.position = Vector2(col_pos.x - TILE_SIZE/2, col_pos.y - TILE_SIZE/2)
+			col_highlight.size = Vector2(TILE_SIZE, ROWS * TILE_SIZE)
+			col_highlight.z_index = 1 # Above background, below tiles
+			add_child(col_highlight)
 		
 		tile.z_index = 10 # Bring to front
 		
@@ -455,7 +523,7 @@ func process_match_group(group: Array):
 			Tile.Type.ORANGE: type_str = "mult_orange"
 		
 		if type_str != "":
-			var up_level = level_manager.upgrades.get(type_str, 0)
+			var up_level = level_manager.save_manager.get_upgrade_level(type_str)
 			match_score *= (1.0 + (up_level * 0.1))
 	
 	score = max(0, score + match_score)
@@ -477,13 +545,13 @@ func process_match_group(group: Array):
 func get_max_mana() -> int:
 	var base = 50
 	if level_manager:
-		base += (level_manager.upgrades.get("mana_cap", 0) * 10)
+		base += (level_manager.save_manager.get_upgrade_level("mana_cap") * 10)
 	return base
 	
 func get_spell_cost() -> int:
 	var base = 50
 	if level_manager:
-		base -= (level_manager.upgrades.get("spell_cost", 0) * 5)
+		base -= (level_manager.save_manager.get_upgrade_level("spell_cost") * 5)
 	return max(10, base) # Minimum cost 10
 
 
@@ -518,7 +586,7 @@ func update_ui():
 	if score_bar: score_bar.value = score
 	if turns_label: turns_label.text = "Turns: %d" % turns
 	if multi_label: multi_label.text = "Multiplier: %.1fx" % multiplier
-	if gold_label and level_manager: gold_label.text = "Gold: %d" % level_manager.gold
+	if gold_label and level_manager: gold_label.text = "Gold: %d" % level_manager.save_manager.get_gold()
 	var max_mana = get_max_mana()
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]
 	
@@ -587,27 +655,4 @@ func try_cast_spell(grid_pos: Vector2i):
 		print("Invalid Target. Select BLACK tile.")
 		current_state = State.IDLE
 #region Shop Logic
-#region Shop Logic
-func open_shop():
-	if not level_manager: return
-	
-	var shop_scene = preload("res://Shop.tscn").instantiate()
-	add_child(shop_scene)
-	shop_scene.setup(level_manager)
-	
-	# Connect signals
-	shop_scene.close_requested.connect(func(): 
-		shop_scene.queue_free()
-		current_state = State.IDLE # Unlock
-	)
-	
-	shop_scene.upgrade_purchased.connect(try_buy_upgrade)
-	# Lock input
-	current_state = State.PROCESSING
-
-func try_buy_upgrade(key: String, cost: int):
-	# Purchase logic moved to Shop.gd for better feedback control
-	# This function now just updates the main UI
-	add_log("Purchased %s!" % key)
-	update_ui()
 #endregion

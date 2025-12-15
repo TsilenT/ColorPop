@@ -4,8 +4,13 @@ extends CanvasLayer
 signal close_requested
 signal upgrade_purchased(key: String, cost: int)
 
-@onready var grid_container: GridContainer = $ScrollContainer/GridContainer
+@onready var grid_container: GridContainer = $Panel/ScrollContainer/GridContainer
 @onready var gold_label: Label = $Panel/GoldLabel
+@onready var close_btn: Button = $Panel/CloseButtonContainer/CloseButton
+
+func _ready():
+	if close_btn:
+		close_btn.pressed.connect(func(): emit_signal("close_requested"))
 
 var level_manager = null # Reference to LevelManager
 
@@ -29,7 +34,7 @@ func setup(lm):
 func refresh_ui():
 	if not level_manager: return
 	
-	gold_label.text = "Gold: %d" % level_manager.gold
+	gold_label.text = "Gold: %d" % level_manager.save_manager.get_gold()
 	
 	# Clear existing children
 	for child in grid_container.get_children():
@@ -59,7 +64,7 @@ func create_upgrade_card(data):
 	vbox.add_child(lbl_desc)
 	
 	# Get current level
-	var current_lvl = level_manager.upgrades.get(data["id"], 0)
+	var current_lvl = level_manager.save_manager.get_upgrade_level(data["id"])
 	var lvl_lbl = Label.new()
 	lvl_lbl.text = "Lvl: %d" % current_lvl
 	lvl_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

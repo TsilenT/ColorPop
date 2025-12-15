@@ -2,15 +2,8 @@ class_name LevelManager
 extends Node
 
 var current_level: int = 1
-var gold: int = 0
 var tile_scores: Dictionary = {}
-var upgrades: Dictionary = {
-	"mana_cap": 0,
-	"spell_cost": 0,
-	"tile_mult": 0
-}
-
-const SAVE_PATH = "user://savegame.json"
+var save_manager: SaveManager
 
 # Score Tiers
 const SCORE_LOW = 50
@@ -18,34 +11,10 @@ const SCORE_MED = 100
 const SCORE_HIGH = 150
 
 func _init():
-	load_game()
-
-func save_game():
-	var save_data = {
-		"gold": gold,
-		"upgrades": upgrades
-	}
-	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(save_data))
-
-func load_game():
-	if not FileAccess.file_exists(SAVE_PATH):
-		return # No save file
-		
-	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if file:
-		var content = file.get_as_text()
-		var json = JSON.new()
-		if json.parse(content) == OK:
-			var data = json.data
-			if "gold" in data: gold = int(data["gold"])
-			if "upgrades" in data: upgrades = data["upgrades"]
+	save_manager = SaveManager.new()
 
 func setup_run():
 	current_level = 1
-	# Do NOT reset gold here as it persists
-	save_game() # Save start of run state
 	randomize_tile_scores() # Initial randomization
 
 func randomize_tile_scores():
@@ -75,8 +44,7 @@ func get_tile_score(type: Tile.Type) -> int:
 
 func complete_level() -> int:
 	var reward = 100 * current_level
-	gold += reward
-	save_game() # Save progress
+	save_manager.add_gold(reward)
 	current_level += 1
 	randomize_tile_scores() # Randomize for next level
 	return reward
@@ -88,13 +56,8 @@ func get_black_tile_score() -> int:
 
 
 func purchase_upgrade(key: String, cost: int) -> bool:
-	if gold >= cost:
-		gold -= cost
-		if key in upgrades:
-			upgrades[key] += 1
-		else:
-			upgrades[key] = 1
-		save_game()
+	if save_manager.spend_gold(cost):
+		save_manager.increment_upgrade(key)
 		return true
 	return false
 
