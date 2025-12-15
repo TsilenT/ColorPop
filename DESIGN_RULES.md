@@ -1,35 +1,56 @@
-	# Match-3 Godot Prototype: Stage 1 Design Rules
+# Match-3 Game Mechanics & Design Rules
 
-This document outlines all constraints for the 8x8 game prototype. The Antigravity agent must reference these rules for all GDScript generation.
+This document outlines the current logic and constraints of the game as implemented.
 
 ## I. Game Parameters
-- **Board Size:** 8 columns, 8 rows (COLS=8, ROWS=8).
-- **Goal:** 10,000 Points.
-- **Limit:** 20 Turns.
-- **Core Move:** One Tile Insertion Move per turn (dragging a tile into a row/column shifts all other tiles).
+- **Board Size:** 8 columns x 8 rows.
+- **Limit:** 20 Turns per level.
+- **Level Targets:** $1000 + (Level \times 5000)$.
+- **Level Reward:** $100 \times Level$ Gold.
 
-## II. Tile Definitions (Tile.gd)
-- **Tile Types (Enum):** RED, YELLOW, GREEN, BLUE, BLACK
-- **Tile Base Point Values (B):**
-	- RED (Primary Point): +150
-	- YELLOW (Secondary Point): +75
-	- BLACK (Penalty): -500 (Deduction)
-	- GREEN (Multiplier) / BLUE (Mana): 0 points.
+## II. Tile Definitions
+### Standard Scoring Tiles
+The 4 main colors (RED, YELLOW, PURPLE, ORANGE) are assigned values from a randomized pool at the start of each level.
+- **Pool:** [50, 100, 100, 150] (Low, Med, Med, High).
+- **Discovery:** Values are hidden ("???") until the player matches the specific color, revealing its tier.
 
-## III. Scoring & Combo Formula
-- **Efficiency Multiplier (Combo):** A +25% bonus is applied for every tile matched over 3 (N-3).
-- **Final Points Formula (P_total):**
-  $$P_{\text{total}} = N \times B \times M \times (1 + (N-3) \times 0.25)$$
-  (Where N ≥ 3, B is Base Value, M is Global Multiplier).
-- **Penalty Scaling:** The BLACK tile deduction (-500) must also be scaled by the Global Multiplier (M).
+### Special Tiles
+- **GREEN (Catalyst):** Grants Score Multiplier. Base Score: 0.
+- **BLUE (Mana):** Grants Mana. Base Score: 0.
+- **BLACK (Hazard):** Penalty score.
+  - Value: $-50 - (Level \times 50)$.
 
-## IV. Resource Mechanics (Green & Blue)
-- **Global Multiplier (M):** Starts at 1.0x.
-	- Match-3 Green: +1.0x.
-	- Match-N Green: The base +1.0x is scaled by the Combo Multiplier (e.g., Match-4 is +1.25x).
-	- **DECAY:** If a Green tile match is NOT made, the Global Multiplier must decay by **-0.5x** at the start of the next turn.
-- **Mana (BLUE):** Base is 4 Mana/Tile.
-	- Formula: Mana Gain = $N \times 4 \times (1 + (N-3) \times 0.25)$
-	- Mana Gauge: 60 Mana Capacity.
-	- Spell 1 Cost: 60 Mana.
-- **Spell 1: "The Catalyst":** Transforms 1 selected BLACK Tile into 1 RED Tile.
+## III. Formulas
+
+### 1. Match Efficiency
+Matches larger than 3 grant exponential bonuses.
+$$Efficiency = 1.25^{(Count - 3)}$$
+
+### 2. Base Scoring
+$$MatchScore = Count \times BaseValue \times GlobalMult \times Efficiency$$
+- **Upgrades:** Specific Color Upgrades (e.g., Red Mult) add $+10\%$ to the final $MatchScore$ per level.
+
+### 3. Global Multiplier (Green)
+$$Gain = 0.1 \times Count \times Efficiency$$
+- **Effect:** Adds to the Global Multiplier (starts at 1.0x).
+- **Upgrade:** Green Mult Upgrade increases this **Gain** by $+10\%$ per level.
+- **Decay:** None (Multiplier persists through the level).
+
+### 4. Mana (Blue)
+$$Gain = Count \times 5 \times Efficiency$$
+- **Upgrade:** Blue Mult Upgrade increases this **Gain** by $+10\%$ per level.
+- **Max Mana:** $50 + (UpgradeLevel \times 10)$.
+
+### 5. Spell: "The Catalyst"
+- **Cost:** $50 - (UpgradeLevel \times 5)$ (Minimum 10).
+- **Effect:** Transforms a selected **BLACK** tile into the **Highest Value** tile type currently on the board.
+
+## IV. Progression & Shop
+- **Gold:** Earned by completing levels.
+- **Upgrades:**
+  - **Mana Cap:** +10 Max Mana.
+  - **Spell Cost:** -5 Ability Cost.
+  - **Color Mults (Red, Yel, Pur, Org):** +10% Score for that color.
+  - **Green Mult:** +10% Multiplier Gain rate.
+  - **Blue Mult:** +10% Mana Gain rate.
+- **Save System:** Tracks Gold, Upgrade Levels, and Settings persistently.
