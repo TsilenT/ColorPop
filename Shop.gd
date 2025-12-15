@@ -42,42 +42,19 @@ func refresh_ui():
 		
 	# Rebuild Grid
 	for up in upgrades:
-		var card = create_upgrade_card(up)
+		var card = UpgradeCardScene.instantiate()
 		grid_container.add_child(card)
+		
+		var lvl = level_manager.save_manager.get_upgrade_level(up["id"])
+		card.setup(up, lvl)
+		card.update_state(level_manager.save_manager.get_gold())
+		
+		# Connect signal
+		card.buy_pressed.connect(_on_buy_pressed)
 
-func create_upgrade_card(data):
-	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(200, 150)
-	
-	var vbox = VBoxContainer.new()
-	panel.add_child(vbox)
-	
-	var lbl_name = Label.new()
-	lbl_name.text = data["name"]
-	lbl_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(lbl_name)
-	
-	var lbl_desc = Label.new()
-	lbl_desc.text = data["desc"]
-	lbl_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-	vbox.add_child(lbl_desc)
-	
-	# Get current level
-	var current_lvl = level_manager.save_manager.get_upgrade_level(data["id"])
-	var lvl_lbl = Label.new()
-	lvl_lbl.text = "Lvl: %d" % current_lvl
-	lvl_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(lvl_lbl)
-	
-	var cost = data["base_cost"] + (current_lvl * (data["base_cost"] * 0.5)) # Cost scaling
-	
-	var btn = Button.new()
-	btn.text = "Buy (%d)" % int(cost)
-	btn.pressed.connect(func(): _on_buy_pressed(data["id"], int(cost)))
-	vbox.add_child(btn)
-	
-	return panel
+var UpgradeCardScene = preload("res://UpgradeCard.tscn")
+
+# create_upgrade_card removed in favor of Scene instantiation
 
 @onready var feedback_label: Label = $FeedbackLabel
 

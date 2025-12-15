@@ -1,0 +1,8 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- House Body -->
+  <path d="M10 32 L32 10 L54 32 L54 58 L10 58 Z" fill="#4dabf7" stroke="#339af0" stroke-width="2"/>
+  <!-- Door -->
+  <rect x="24" y="38" width="16" height="20" fill="#339af0"/>
+  <!-- Roof Overhang -->
+  <path d="M4 32 L32 4 L60 32" stroke="#1c7ed6" stroke-width="4" fill="none"/>
+</svg>

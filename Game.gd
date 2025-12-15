@@ -17,10 +17,11 @@ var GRID_OFFSET = Vector2(100, 100)
 @onready var score_text: Label = $HUD/UIContainer/RightPanel/VBox/ScoreProgressBar/OverlayLabel
 @onready var turns_label: Label = $HUD/UIContainer/RightPanel/VBox/TurnsLabel
 @onready var multi_label: Label = $HUD/UIContainer/RightPanel/VBox/MultiLabel
-@onready var gold_label: Label = $HUD/UIContainer/TopRightPanel/VBox/GoldLabel
+@onready var gold_label: Label = $HUD/UIContainer/Header/GoldContainer/GoldLabel
 @onready var mana_label: Label = $HUD/UIContainer/BottomPanel/ManaLabel
 @onready var spell_button: Button = $HUD/UIContainer/BottomPanel/SpellButton
-@onready var shop_button: Button = $HUD/UIContainer/TopRightPanel/VBox/ShopButton
+@onready var shop_button: TextureButton = $HUD/UIContainer/Header/Buttons/ShopButton
+@onready var settings_button: TextureButton = $HUD/UIContainer/Header/Buttons/SettingsButton
 
 @onready var reset_button: Button = $HUD/UIContainer/RightPanel/VBox/ResetButton
 @onready var log_label: RichTextLabel = $HUD/UIContainer/RightPanel/VBox/LogPanel/LogLabel
@@ -46,7 +47,6 @@ var legend_box: GridContainer
 #endregion
 
 @export var SettingsScene: PackedScene = preload("res://Settings.tscn")
-@onready var settings_button: Button = $HUD/UIContainer/TopRightPanel/VBox/SettingsButton
 
 func _ready():
 	level_manager = LevelManager.new()
@@ -105,6 +105,10 @@ func open_shop():
 	add_child(shop)
 	shop.setup(level_manager)
 	get_tree().paused = true
+	
+	# Refresh UI immediately on purchase (for background visibility)
+	shop.upgrade_purchased.connect(func(_key, _cost): update_ui())
+	
 	shop.close_requested.connect(func(): 
 		shop.queue_free()
 		get_tree().paused = false
@@ -524,7 +528,8 @@ func process_match_group(group: Array):
 	
 	score = max(0, score + match_score)
 	
-	add_log("Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)])
+	if match_score > 0:
+		add_log("Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)])
 	
 	if type == Tile.Type.GREEN:
 		green_matched_this_turn = true
@@ -536,7 +541,7 @@ func process_match_group(group: Array):
 			gain *= (1.0 + (up_level * 0.1))
 			
 		multiplier += gain
-		add_log("Green Match! Mult +%.1f -> %.1fx" % [gain, multiplier])
+		add_log("Matched %d GREEN! Mult +%.1f -> %.1fx" % [match_count, gain, multiplier])
 	
 	if type == Tile.Type.BLUE:
 		var gain = match_count * 5 * efficiency
@@ -547,7 +552,7 @@ func process_match_group(group: Array):
 			gain *= (1.0 + (up_level * 0.1))
 			
 		mana = min(get_max_mana(), mana + gain)
-		add_log("Mana +%d" % int(gain))
+		add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
 #endregion
 
 func get_max_mana() -> int:

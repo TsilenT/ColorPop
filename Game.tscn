@@ -1,40 +1,51 @@
-[gd_scene load_steps=4 format=3 uid="uid://buq3l18x0i6x"]
+[gd_scene load_steps=9 format=3 uid="uid://buq3l18x0i6x"]
 
 [ext_resource type="Script" path="res://Game.gd" id="1_v43r7"]
+[ext_resource type="Texture2D" uid="uid://un46hps77icr" path="res://assets/icon_shop.svg" id="2_shop"]
+[ext_resource type="Texture2D" uid="uid://d4n2qo2us4wmq" path="res://assets/icon_gear.svg" id="3_gear"]
+[ext_resource type="Texture2D" uid="uid://rgw71d1eubcj" path="res://assets/icon_gold.svg" id="4_gold"]
+
+[sub_resource type="Gradient" id="Gradient_Bg"]
+colors = PackedColorArray(0.101961, 0.101961, 0.180392, 1, 0.0509804, 0.0509804, 0.0901961, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_Bg"]
+gradient = SubResource("Gradient_Bg")
+fill_to = Vector2(1, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_Board"]
-bg_color = Color(0.2, 0.2, 0.2, 1)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+bg_color = Color(0.12, 0.12, 0.16, 1)
+border_width_left = 6
+border_width_top = 6
+border_width_right = 6
+border_width_bottom = 6
+border_color = Color(0, 0, 0, 0.5)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_HUD"]
-bg_color = Color(0, 0, 0.2, 0.5)
+bg_color = Color(0.1, 0.1, 0.15, 0.8)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.4, 0.6, 1, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+border_color = Color(0.3, 0.3, 0.4, 0.5)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_v43r7")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.1, 0.1, 0.1, 1)
+texture = SubResource("GradientTexture2D_Bg")
 
 [node name="BoardFrame" type="Panel" parent="."]
 offset_left = 45.0
@@ -59,31 +70,76 @@ columns = 8
 
 [node name="UIContainer" type="Control" parent="HUD"]
 layout_mode = 3
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -640.0
-offset_top = -360.0
-offset_right = 640.0
-offset_bottom = 360.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="Header" type="HBoxContainer" parent="HUD/UIContainer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 20.0
+offset_top = 10.0
+offset_right = -20.0
+offset_bottom = 74.0
+grow_horizontal = 2
+theme_override_constants/separation = 40
+
+[node name="Spacer" type="Control" parent="HUD/UIContainer/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GoldContainer" type="HBoxContainer" parent="HUD/UIContainer/Header"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="HUD/UIContainer/Header/GoldContainer"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("4_gold")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GoldLabel" type="Label" parent="HUD/UIContainer/Header/GoldContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 32
+text = "0"
+
+[node name="Buttons" type="HBoxContainer" parent="HUD/UIContainer/Header"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="ShopButton" type="TextureButton" parent="HUD/UIContainer/Header/Buttons"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture_normal = ExtResource("2_shop")
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="SettingsButton" type="TextureButton" parent="HUD/UIContainer/Header/Buttons"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture_normal = ExtResource("3_gear")
+ignore_texture_size = true
+stretch_mode = 5
+
 [node name="RightPanel" type="Panel" parent="HUD/UIContainer"]
 layout_mode = 1
-anchors_preset = 3
+anchors_preset = 11
 anchor_left = 1.0
-anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -600.0
-offset_top = -580.0
+offset_left = -480.0
+offset_top = 100.0
 offset_right = -30.0
-offset_bottom = -40.0
+offset_bottom = -30.0
 grow_horizontal = 0
-grow_vertical = 0
+grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_HUD")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/UIContainer/RightPanel"]
@@ -101,10 +157,12 @@ theme_override_constants/separation = 15
 
 [node name="LevelLabel" type="Label" parent="HUD/UIContainer/RightPanel/VBox"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Level: 1"
+horizontal_alignment = 1
 
 [node name="ScoreProgressBar" type="ProgressBar" parent="HUD/UIContainer/RightPanel/VBox"]
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 max_value = 1000.0
 show_percentage = false
@@ -143,39 +201,6 @@ visible = false
 layout_mode = 2
 text = "PLAY AGAIN"
 
-[node name="TopRightPanel" type="PanelContainer" parent="HUD/UIContainer"]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -220.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = 120.0
-grow_horizontal = 0
-theme_override_styles/panel = SubResource("StyleBoxFlat_HUD")
-
-[node name="VBox" type="VBoxContainer" parent="HUD/UIContainer/TopRightPanel"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="GoldLabel" type="Label" parent="HUD/UIContainer/TopRightPanel/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.84, 0, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 28
-text = "Gold: 0"
-horizontal_alignment = 1
-
-[node name="ShopButton" type="Button" parent="HUD/UIContainer/TopRightPanel/VBox"]
-layout_mode = 2
-text = "SHOP"
-
-[node name="SettingsButton" type="Button" parent="HUD/UIContainer/TopRightPanel/VBox"]
-layout_mode = 2
-text = "SETTINGS"
-
 [node name="BottomPanel" type="HBoxContainer" parent="HUD/UIContainer"]
 layout_mode = 1
 anchors_preset = 2
@@ -194,4 +219,4 @@ text = "Mana: 0"
 
 [node name="SpellButton" type="Button" parent="HUD/UIContainer/BottomPanel"]
 layout_mode = 2
-text = "Cast Catalyst (50)"
+text = "Cast Catalyst"
