@@ -26,9 +26,6 @@ var data = {
 func _init():
 	load_game()
 
-# ... (save_game/load_game omitted for brevity in match, but here fully)
-# Wait, I should match the block I see in view_file.
-
 func save_game():
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:

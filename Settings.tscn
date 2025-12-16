@@ -60,6 +60,10 @@ theme_override_constants/separation = 20
 layout_mode = 2
 text = "Highlight Valid Moves"
 
+[node name="SoundToggle" type="CheckButton" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Sound Enabled"
+
 [node name="CloseButton" type="Button" parent="Panel"]
 layout_mode = 1
 anchors_preset = 7

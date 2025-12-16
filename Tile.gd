@@ -1,7 +1,7 @@
 class_name Tile
 extends Area2D
 
-enum Type { RED, YELLOW, GREEN, BLUE, BLACK, PURPLE, ORANGE }
+enum Type {RED, YELLOW, GREEN, BLUE, BLACK, PURPLE, ORANGE}
 
 @export var tile_type: Type = Type.RED
 @export var coordinates: Vector2i # To store its position (row, col)
@@ -20,6 +20,9 @@ const TEXTURE_PATHS = {
 }
 
 func _ready():
+	update_visuals()
+
+func update_visuals():
 	if sprite:
 		# Load Texture
 		var path = TEXTURE_PATHS.get(tile_type, "")

@@ -30,8 +30,8 @@ func randomize_tile_scores():
 		Tile.Type.ORANGE: score_pool[3],
 		# Fixed/Special values for others if needed, or 0
 		Tile.Type.GREEN: 0, # Multiplier only
-		Tile.Type.BLUE: 0,  # Mana only
-		Tile.Type.BLACK: get_black_tile_score()  # Bad tile
+		Tile.Type.BLUE: 0, # Mana only
+		Tile.Type.BLACK: get_black_tile_score() # Bad tile
 	}
 	
 	print("Level %d Tile Scores: %s" % [current_level, tile_scores])
@@ -53,30 +53,31 @@ func get_score_text(score: int) -> String:
 	return str(score)
 
 func get_current_target() -> int:
-	return (current_level * 5000)*(1.05**(current_level-1))
+	return (current_level * 5000) * (1.05 ** (current_level - 1))
 
 func get_tile_score(type: Tile.Type) -> int:
 	return tile_scores.get(type, 0)
 
 func complete_level(final_score: int, turns_left: int) -> Dictionary:
-	# Gold from Score (2% of Score)
+	# Gold: 2% of Score
 	var gold_reward = int(final_score * 0.02)
 	
-	# Diamonds from Turns (0.5 per turn * level, floor)
-	var diam_reward = floor(turns_left * 0.5 * current_level)
+	# Diamonds: 0.5 * Level * Turns
+	var base_diamonds = floor(turns_left * 0.5 * current_level)
+	var diam_reward = int(base_diamonds)
 	
 	save_manager.add_gold(gold_reward)
 	save_manager.add_diamonds(diam_reward)
 	
+	return {"gold": gold_reward, "diamonds": diam_reward}
+
+func advance_level():
 	current_level += 1
-	randomize_tile_scores() # Randomize for next level
-	
-	return { "gold": gold_reward, "diamonds": diam_reward }
+	randomize_tile_scores()
 
 func get_black_tile_score() -> int:
 	# Base -50, scales by -50 per level
 	return -50 - (current_level * 50)
-
 
 
 func purchase_upgrade(key: String, cost: int, currency: String = "gold") -> bool:

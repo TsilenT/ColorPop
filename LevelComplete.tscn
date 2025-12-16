@@ -1,7 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://c6j8l8x0i6x"]
+[gd_scene load_steps=3 format=3 uid="uid://dlhx1ihpxy0n3"]
 
 [ext_resource type="Script" path="res://LevelComplete.gd" id="1_lc"]
-[ext_resource type="Texture2D" path="res://assets/icon_diamond.svg" id="2_diam"]
+[ext_resource type="Texture2D" uid="uid://c2o5h48k4uiw8" path="res://assets/icon_diamond.svg" id="2_diam"]
 
 [node name="LevelComplete" type="Control"]
 layout_mode = 3

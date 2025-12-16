@@ -12,23 +12,24 @@ signal upgrade_purchased(key: String, cost: int)
 @onready var diam_tab: Button = $Panel/Tabs/DiamondTab
 
 var level_manager = null
+var sound_manager = null
 var current_tab = "gold"
 
 # Upgrade Definitions
 var gold_upgrades = [
-	{ "id": "mana_cap", "name": "Mana Cap", "base_cost": 100, "desc": "+10 Max Mana" },
-	{ "id": "spell_cost", "name": "Spell Cost", "base_cost": 150, "desc": "-5 Catalyst Cost", "max": 8 },
-	{ "id": "mult_red", "name": "Red Mult", "base_cost": 200, "desc": "+10% Red Score" },
-	{ "id": "mult_yellow", "name": "Yellow Mult", "base_cost": 200, "desc": "+10% Yellow Score" },
-	{ "id": "mult_green", "name": "Green Mult", "base_cost": 200, "desc": "+10% Mult Gain" },
-	{ "id": "mult_blue", "name": "Blue Mult", "base_cost": 200, "desc": "+10% Mana Gain" },
-	{ "id": "mult_purple", "name": "Purple Mult", "base_cost": 200, "desc": "+10% Purple Score" },
-	{ "id": "mult_orange", "name": "Orange Mult", "base_cost": 200, "desc": "+10% Orange Score" },
+	{"id": "mana_cap", "name": "Mana Cap", "base_cost": 100, "desc": "+10 Max Mana"},
+	{"id": "spell_cost", "name": "Spell Cost", "base_cost": 150, "desc": "-5 Catalyst Cost", "max": 8},
+	{"id": "mult_red", "name": "Red Mult", "base_cost": 200, "desc": "+10% Red Score"},
+	{"id": "mult_yellow", "name": "Yellow Mult", "base_cost": 200, "desc": "+10% Yellow Score"},
+	{"id": "mult_green", "name": "Green Mult", "base_cost": 200, "desc": "+10% Mult Gain"},
+	{"id": "mult_blue", "name": "Blue Mult", "base_cost": 200, "desc": "+10% Mana Gain"},
+	{"id": "mult_purple", "name": "Purple Mult", "base_cost": 200, "desc": "+10% Purple Score"},
+	{"id": "mult_orange", "name": "Orange Mult", "base_cost": 200, "desc": "+10% Orange Score"},
 ]
 
 var diamond_upgrades = [
-	{ "id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlock Row Clear Spell", "max": 1, "currency": "diamonds" },
-	{ "id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds" }
+	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlock Row Clear Spell", "max": 1, "currency": "diamonds"},
+	{"id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds"}
 ]
 
 func _ready():
@@ -39,12 +40,14 @@ func _ready():
 	if diam_tab:
 		diam_tab.pressed.connect(switch_tab.bind("diamonds"))
 
-func setup(lm):
+func setup(lm, sm = null):
 	level_manager = lm
+	sound_manager = sm
 	if not current_tab: current_tab = "gold"
 	refresh_ui()
 
 func switch_tab(tab: String):
+	if sound_manager: sound_manager.play_tone(400, 0.05)
 	current_tab = tab
 	refresh_ui()
 
@@ -52,9 +55,6 @@ func refresh_ui():
 	if not level_manager: return
 	
 	gold_label.text = "Gold: %d" % level_manager.save_manager.get_gold()
-	# Show/Hide correct label if needed, or assume both shown? 
-	# Original plan had Diamond Label separate.
-	# Let's verify labels in Shop.tscn. Assuming DiamondLabel exists.
 	var diam_label = $Panel/DiamondLabel
 	if diam_label:
 		diam_label.visible = (current_tab == "diamonds")
@@ -63,8 +63,8 @@ func refresh_ui():
 	gold_label.visible = (current_tab == "gold")
 	
 	# Tab Styling
-	if gold_tab: gold_tab.modulate = Color(1,1,1) if current_tab == "gold" else Color(0.5,0.5,0.5)
-	if diam_tab: diam_tab.modulate = Color(1,1,1) if current_tab == "diamonds" else Color(0.5,0.5,0.5)
+	if gold_tab: gold_tab.modulate = Color(1, 1, 1) if current_tab == "gold" else Color(0.5, 0.5, 0.5)
+	if diam_tab: diam_tab.modulate = Color(1, 1, 1) if current_tab == "diamonds" else Color(0.5, 0.5, 0.5)
 	
 	# Clear existing children
 	for child in grid_container.get_children():
@@ -93,7 +93,6 @@ var UpgradeCardScene = preload("res://UpgradeCard.tscn")
 
 @onready var feedback_label: Label = $FeedbackLabel
 
-# ... (setup and refresh_ui remain similar)
 
 func _on_buy_pressed(key: String, cost: int):
 	if level_manager:
@@ -102,10 +101,12 @@ func _on_buy_pressed(key: String, cost: int):
 		
 		if level_manager.purchase_upgrade(key, cost, currency):
 			show_feedback("Purchased!", Color.GREEN)
+			if sound_manager: sound_manager.play_match(3) # Nice ding
 			emit_signal("upgrade_purchased", key, cost)
 			refresh_ui()
 		else:
 			show_feedback("Not Enough!", Color.RED)
+			if sound_manager: sound_manager.play_error()
 
 func show_feedback(text: String, color: Color):
 	if feedback_label:
@@ -121,7 +122,7 @@ func show_feedback(text: String, color: Color):
 		feedback_label.visible = true
 		feedback_label.move_to_front() # Ensure it's the last child to draw on top
 		
-		# Debug print to confirm logic execution
+		# Debug print
 		print("Showing feedback: ", text)
 		
 		var tween = create_tween()
@@ -132,4 +133,5 @@ func show_feedback(text: String, color: Color):
 		tween.tween_callback(func(): feedback_label.visible = false)
 
 func _on_close_button_pressed():
+	if sound_manager: sound_manager.play_tone(300, 0.05)
 	emit_signal("close_requested")

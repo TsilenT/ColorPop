@@ -9,6 +9,7 @@ var GRID_OFFSET = Vector2(100, 100)
 #region Scene References
 @export var TileScene: PackedScene = preload("res://Tile.tscn")
 @onready var board_container: Node2D = $BoardContainer
+@export var SettingsScene: PackedScene = preload("res://Settings.tscn")
 
 # UI References
 @onready var ui_container: Control = $HUD/UIContainer
@@ -23,54 +24,44 @@ var GRID_OFFSET = Vector2(100, 100)
 @onready var spell_button: Button = $HUD/UIContainer/BottomPanel/SpellButton
 @onready var shop_button: TextureButton = $HUD/UIContainer/Header/Buttons/ShopButton
 @onready var settings_button: TextureButton = $HUD/UIContainer/Header/Buttons/SettingsButton
+@onready var harvest_button: Button = $HUD/UIContainer/BottomPanel/HarvestButton
 
 @onready var reset_button: Button = $HUD/UIContainer/RightPanel/VBox/ResetButton
 @onready var log_label: RichTextLabel = $HUD/UIContainer/RightPanel/VBox/LogPanel/LogLabel
 #endregion
 
 #region State Variables
-var board: Array[Array] = []
-var selected_tile_coord: Vector2i = Vector2i(-1, -1)
-var input_start_pos: Vector2
+@export var level_manager: LevelManager # Injected or created in ready
+var sound_manager: SoundManager
+var board_manager: BoardManager
+var input_handler: InputHandler
 
-@export var level_manager: LevelManager
 var score: float = 0
 var turns: int = 20
 var multiplier: float = 1.0
 var mana: float = 0
 var green_matched_this_turn: bool = false
+var input_locked: bool = false # Processing flag
 
-enum State { IDLE, DRAGGING, PROCESSING, CASTING }
-var current_state: State = State.IDLE
 # Legend UI
 var legend_labels: Dictionary = {}
 var legend_box: GridContainer
 #endregion
 
-@export var SettingsScene: PackedScene = preload("res://Settings.tscn")
 
 func _ready():
 	level_manager = LevelManager.new()
 	add_child(level_manager)
 	level_manager.setup_run()
 	
+	setup_managers()
+	
 	start_next_level()
 	
 	get_window().move_to_center()
 	randomize()
-	if spell_button:
-		spell_button.pressed.connect(activate_spell_mode.bind("catalyst"))
 	
-	if harvest_button:
-		harvest_button.pressed.connect(activate_spell_mode.bind("harvest"))
-		
-	# Shop Connections
-	if shop_button: shop_button.pressed.connect(open_shop)
-	if settings_button: settings_button.pressed.connect(open_settings)
-	
-	if reset_button:
-		reset_button.pressed.connect(reset_game)
-		reset_button.visible = false
+	setup_ui_connections()
 	
 	setup_background_grid()
 	
@@ -81,7 +72,47 @@ func _ready():
 	update_ui() # Initial UI Set
 	setup_legend_ui()
 	update_legend()
+
+func setup_managers():
+	# Audio
+	sound_manager = SoundManager.new()
+	add_child(sound_manager)
 	
+	# Apply Settings
+	if level_manager and level_manager.save_manager:
+		sound_manager.sound_enabled = level_manager.save_manager.get_setting("sound_enabled", true)
+		
+	# Board
+	board_manager = BoardManager.new()
+	add_child(board_manager)
+	board_manager.setup(board_container, TileScene, level_manager, GRID_OFFSET)
+	
+	# Input
+	input_handler = InputHandler.new()
+	add_child(input_handler)
+	input_handler.setup(board_manager, level_manager, board_container)
+	
+	# Connect Signals
+	input_handler.move_requested.connect(_on_move_requested)
+	input_handler.spell_cast_requested.connect(_on_spell_cast_requested)
+	input_handler.harvest_requested.connect(_on_harvest_requested)
+
+func setup_ui_connections():
+	if spell_button:
+		spell_button.pressed.connect(activate_spell_mode.bind("catalyst"))
+		spell_button.pressed.connect(func(): if sound_manager: sound_manager.play_tone(440, 0.1))
+	
+	if harvest_button:
+		harvest_button.pressed.connect(activate_spell_mode.bind("harvest"))
+		harvest_button.pressed.connect(func(): if sound_manager: sound_manager.play_tone(440, 0.1))
+		
+	if shop_button: shop_button.pressed.connect(open_shop)
+	if settings_button: settings_button.pressed.connect(open_settings)
+	if reset_button:
+		reset_button.pressed.connect(reset_game)
+		reset_button.visible = false
+
+#region Resize Handling
 func resize_game():
 	var vp_size = get_viewport_rect().size
 	var target_width = 1280.0
@@ -95,69 +126,22 @@ func resize_game():
 	# Update Logic Offset
 	GRID_OFFSET.x = 100.0 + margin_x
 	
-	# Reposition existing tiles
-	if board_container:
-		for child in board_container.get_children():
-			if child.has_method("get_class"): # Basic check
-				# Re-calc position from grid coords if available
-				# Tiles have 'coordinates' property
-				if "coordinates" in child:
-					child.position = grid_to_pixel(child.coordinates.x, child.coordinates.y)
-	
-func open_shop():
-	var shop = preload("res://Shop.tscn").instantiate()
-	add_child(shop)
-	shop.setup(level_manager)
-	get_tree().paused = true
-	
-	# Refresh UI immediately on purchase (for background visibility)
-	shop.upgrade_purchased.connect(func(_key, _cost): update_ui())
-	
-	shop.close_requested.connect(func(): 
-		shop.queue_free()
-		get_tree().paused = false
-		update_ui()
-	)
-
-func open_settings():
-	var settings = SettingsScene.instantiate()
-	add_child(settings)
-	settings.setup(level_manager)
-	get_tree().paused = true
-	settings.close_requested.connect(func():
-		settings.queue_free()
-		get_tree().paused = false
-	)
-
-@onready var harvest_button: Button = $HUD/UIContainer/BottomPanel/HarvestButton
-var active_spell_type: String = "catalyst"
-
-func activate_spell_mode(mode: String = "catalyst"):
-	if turns <= 0: return # Locked if Game Over
-	
-	clear_harvest_preview() # Cleanup previous visuals
-	
-	active_spell_type = mode
-	
-	var cost = 0
-	if mode == "catalyst": cost = get_spell_cost()
-	elif mode == "harvest": cost = 100
-	
-	if mana >= cost:
-		current_state = State.CASTING
-		if mode == "catalyst":
-			print("Select a BLACK tile to transform!")
-			add_log("Select a BLACK tile!")
-		elif mode == "harvest":
-			print("Select Row to Harvest!")
-			add_log("Select Row to Harvest!")
-
-
+	# Propagate to Board Manager
+	if board_manager:
+		board_manager.GRID_OFFSET = GRID_OFFSET
+		# Reposition existing tiles
+		for r in range(ROWS):
+			for c in range(COLS):
+				var tile = board_manager.get_tile(r, c)
+				if tile: tile.position = board_manager.grid_to_pixel(r, c)
+#endregion
 
 func start_next_level():
 	var target = level_manager.get_current_target()
-	turns = 20 # Fixed turns per level for now
-	current_state = State.IDLE
+	turns = 20
+	input_locked = false
+	input_handler.set_state(InputHandler.State.IDLE)
+	
 	score = 0
 	multiplier = 1.0
 	mana = 0
@@ -169,400 +153,109 @@ func start_next_level():
 		score_bar.max_value = target
 		score_bar.value = 0
 	
-	initialize_board()
+	board_manager.initialize_board()
 	update_ui()
 	add_log("Level %d Start! Target: %d" % [level_manager.current_level, target])
 
 func reset_game():
-	# Restart the entire run
 	level_manager.setup_run()
 	start_next_level()
 	reset_button.visible = false
 	if turns_label: turns_label.text = "Turns: %d" % turns
 
-#region Board Management
-func setup_background_grid():
-	var grid_bg = $BoardFrame/GridBackground
-	if not grid_bg: return
+#region Input Signals
+func _on_move_requested(start: Vector2i, end: Vector2i):
+	attempt_move(start, end)
+
+func _on_spell_cast_requested(grid_pos: Vector2i):
+	try_cast_spell(grid_pos)
+
+func _on_harvest_requested(row_idx: int):
+	try_cast_harvest(row_idx)
+
+func activate_spell_mode(mode: String = "catalyst"):
+	if turns <= 0: return
 	
-	# Clear existing
-	for child in grid_bg.get_children():
-		child.queue_free()
-		
-	# Create checkerboard
-	for i in range(ROWS * COLS):
-		var cell = ColorRect.new()
-		cell.custom_minimum_size = Vector2(TILE_SIZE, TILE_SIZE)
-		
-		var r = i / COLS
-		var c = i % COLS
-		
-		if (r + c) % 2 == 0:
-			cell.color = Color(0.15, 0.15, 0.15, 0.8) # Dark
-		else:
-			cell.color = Color(0.2, 0.2, 0.2, 0.8) # Slightly lighter
-			
-		grid_bg.add_child(cell)
-
-func initialize_board():
-	for child in board_container.get_children():
-		child.queue_free()
-	
-	board.resize(ROWS)
-	for r in range(ROWS):
-		board[r] = []
-		board[r].resize(COLS)
-		for c in range(COLS):
-			var type = get_weighted_random_type()
-			while (c >= 2 and board[r][c-1].tile_type == type and board[r][c-2].tile_type == type) or \
-				  (r >= 2 and board[r-1][c].tile_type == type and board[r-2][c].tile_type == type):
-				type = get_weighted_random_type()
-			spawn_tile(r, c, type)
-
-func spawn_tile(r: int, c: int, type_override = null):
-	var tile = TileScene.instantiate()
-	
-	if type_override != null:
-		tile.tile_type = type_override
-	else:
-		tile.tile_type = get_weighted_random_type()
-		
-	tile.coordinates = Vector2i(r, c)
-	tile.position = grid_to_pixel(r, c)
-	board_container.add_child(tile)
-	board[r][c] = tile
-#endregion
-
-func get_weighted_random_type() -> Tile.Type:
-	var weights = {
-		Tile.Type.RED: 1.0,
-		Tile.Type.YELLOW: 1.0,
-		Tile.Type.GREEN: 0.5, 
-		Tile.Type.BLUE: 1.0,
-		Tile.Type.PURPLE: 1.0,
-		Tile.Type.ORANGE: 1.0,
-		Tile.Type.BLACK: 0.5
-	}
-	
-	# Cinderella Upgrade Check
-	if level_manager and level_manager.save_manager.get_upgrade_level("cinderella") > 0:
-		weights[Tile.Type.GREEN] = weights[Tile.Type.GREEN]* 1.25 # +25% likelihood
-		
-	var total_weight = 0.0
-	for w in weights.values():
-		total_weight += w
-		
-	var roll = randf() * total_weight
-	var current = 0.0
-	for type in weights:
-		current += weights[type]
-		if roll <= current:
-			return type
-	
-	return Tile.Type.RED
-
-#region Helpers
-func add_log(msg: String):
-	if log_label:
-		log_label.text += "\n" + msg
-
-func grid_to_pixel(r: int, c: int) -> Vector2:
-	return Vector2(c * TILE_SIZE, r * TILE_SIZE) + GRID_OFFSET
-
-func pixel_to_grid(pos: Vector2) -> Vector2i:
-	var local_pos = pos - GRID_OFFSET
-	var c = int(round(local_pos.x / TILE_SIZE))
-	var r = int(round(local_pos.y / TILE_SIZE))
-	return Vector2i(r, c)
-
-func is_valid_coord(coord: Vector2i) -> bool:
-	return coord.x >= 0 and coord.x < ROWS and coord.y >= 0 and coord.y < COLS
-#endregion
-
-
-
-#region Input Handling
-var highlight_rect: Line2D = null
-var row_highlight: ColorRect = null
-var col_highlight: ColorRect = null
-var harvest_highlight: ColorRect = null
-
-func handle_click(grid_pos: Vector2i, pos: Vector2):
-	if current_state == State.CASTING:
-		if active_spell_type == "catalyst":
-			try_cast_spell(grid_pos)
-		elif active_spell_type == "harvest":
-			try_cast_harvest(grid_pos.x) # Row is x
-		return
-		
-	if current_state == State.IDLE:
-		# Clean up any orphaned highlights first (defensive)
-		if highlight_rect:
-			highlight_rect.queue_free()
-			highlight_rect = null
-		if row_highlight:
-			row_highlight.queue_free()
-			row_highlight = null
-		if col_highlight:
-			col_highlight.queue_free()
-			col_highlight = null
-		
-		selected_tile_coord = grid_pos
-		input_start_pos = pos
-		current_state = State.DRAGGING
-		
-		# Create Highlight Visual for selected tile
-		var tile = board[grid_pos.x][grid_pos.y]
-		highlight_rect = Line2D.new()
-		highlight_rect.default_color = Color(1, 0.8, 0.2, 0.8) # Gold/Yellow
-		highlight_rect.width = 4.0
-		highlight_rect.closed = true
-		var s = (TILE_SIZE / 2.0) - 4
-		highlight_rect.points = [Vector2(-s, -s), Vector2(s, -s), Vector2(s, s), Vector2(-s, s)]
-		highlight_rect.position = tile.position
-		board_container.add_child(highlight_rect)
-		
-		# Check setting for extra highlights
-		var show_highlights = true
-		if level_manager and level_manager.save_manager:
-			show_highlights = level_manager.save_manager.get_setting("highlight_enabled", true)
-			
-		if show_highlights:
-			# Create Row Highlight
-			row_highlight = ColorRect.new()
-			row_highlight.color = Color(1, 1, 1, 0.2) # White tint
-			var row_pos = grid_to_pixel(grid_pos.x, 0)
-			row_highlight.position = Vector2(row_pos.x - TILE_SIZE/2, row_pos.y - TILE_SIZE/2)
-			row_highlight.size = Vector2(COLS * TILE_SIZE, TILE_SIZE)
-			row_highlight.z_index = 1 # Above background, below tiles
-			add_child(row_highlight)
-			
-			# Create Column Highlight
-			col_highlight = ColorRect.new()
-			col_highlight.color = Color(1, 1, 1, 0.2) # White tint
-			var col_pos = grid_to_pixel(0, grid_pos.y)
-			col_highlight.position = Vector2(col_pos.x - TILE_SIZE/2, col_pos.y - TILE_SIZE/2)
-			col_highlight.size = Vector2(TILE_SIZE, ROWS * TILE_SIZE)
-			col_highlight.z_index = 1 # Above background, below tiles
-			add_child(col_highlight)
-		
-		tile.z_index = 10 # Bring to front
-
-func _input(event):
-	if turns <= 0 and current_state != State.PROCESSING:
+	# Toggle Off logic
+	if input_handler.current_state == InputHandler.State.CASTING and input_handler.active_spell_type == mode:
+		input_handler.set_state(InputHandler.State.IDLE)
+		add_log("Spell Cancelled.")
 		return
 
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			var grid_pos = pixel_to_grid(event.position)
-			if is_valid_coord(grid_pos):
-				handle_click(grid_pos, event.position)
-		else:
-			handle_click_release(event.position)
+	var cost = 0
+	if mode == "catalyst": cost = get_spell_cost()
+	elif mode == "harvest": cost = 100
 	
-	elif event is InputEventMouseMotion:
-		if current_state == State.DRAGGING:
-			if selected_tile_coord != Vector2i(-1, -1):
-				var tile = board[selected_tile_coord.x][selected_tile_coord.y]
-				tile.position = event.position
-				
-				var target_grid = pixel_to_grid(event.position)
-				if is_valid_coord(target_grid):
-					update_preview(selected_tile_coord, target_grid)
-		elif current_state == State.CASTING and active_spell_type == "harvest":
-			var grid_pos = pixel_to_grid(event.position)
-			update_harvest_preview(grid_pos)
-
-func update_harvest_preview(grid_pos: Vector2i):
-	if is_valid_coord(grid_pos):
-		# Create if missing
-		if not harvest_highlight:
-			harvest_highlight = ColorRect.new()
-			harvest_highlight.color = Color(1.0, 0.0, 0.0, 0.3) # Red transparent
-			harvest_highlight.z_index = 5 # Below tiles (10) but above bg
-			add_child(harvest_highlight)
-			
-		# Position over Row
-		var row_pos = grid_to_pixel(grid_pos.x, 0)
-		harvest_highlight.position = Vector2(row_pos.x - TILE_SIZE/2, row_pos.y - TILE_SIZE/2)
-		harvest_highlight.size = Vector2(COLS * TILE_SIZE, TILE_SIZE)
-		harvest_highlight.visible = true
-	else:
-		if harvest_highlight: harvest_highlight.visible = false
-
-func clear_harvest_preview():
-	if harvest_highlight:
-		harvest_highlight.queue_free()
-		harvest_highlight = null
-
-func update_preview(start: Vector2i, curr: Vector2i):
-	# Reset all tiles to default positions first
-	for r in range(ROWS):
-		for c in range(COLS):
-			if board[r][c] and Vector2i(r, c) != start:
-				board[r][c].position = grid_to_pixel(r, c)
-	
-	# Apply visual shift if valid drag
-	if start.x == curr.x: # Row
-		if start.y < curr.y:
-			for c in range(start.y, curr.y):
-				if board[start.x][c+1]:
-					board[start.x][c+1].position = grid_to_pixel(start.x, c)
-		elif start.y > curr.y:
-			for c in range(start.y, curr.y, -1):
-				if board[start.x][c-1]:
-					board[start.x][c-1].position = grid_to_pixel(start.x, c)
-					
-	elif start.y == curr.y: # Col
-		if start.x < curr.x:
-			for r in range(start.x, curr.x):
-				if board[r+1][start.y]:
-					board[r+1][start.y].position = grid_to_pixel(r, start.y)
-		elif start.x > curr.x:
-			for r in range(start.x, curr.x, -1):
-				if board[r-1][start.y]:
-					board[r-1][start.y].position = grid_to_pixel(r, start.y)
-
-func handle_click_release(pos: Vector2):
-	if current_state == State.DRAGGING:
-		var end_grid_pos = pixel_to_grid(pos)
-		
-		# Cleanup Helper Visuals
-		if highlight_rect:
-			highlight_rect.queue_free()
-			highlight_rect = null
-		
-		# Clean up row/column highlights
-		if row_highlight:
-			row_highlight.queue_free()
-			row_highlight = null
-		if col_highlight:
-			col_highlight.queue_free()
-			col_highlight = null
-		
-		# Determine if valid move will happen
-		var valid_move = is_valid_coord(end_grid_pos) and selected_tile_coord != Vector2i(-1, -1) and selected_tile_coord != end_grid_pos and (selected_tile_coord.x == end_grid_pos.x or selected_tile_coord.y == end_grid_pos.y)
-		
-		if selected_tile_coord != Vector2i(-1, -1):
-			var tile = board[selected_tile_coord.x][selected_tile_coord.y]
-			tile.z_index = 0
-			
-			if not valid_move:
-				# Snap back visually only if invalid
-				tile.position = grid_to_pixel(selected_tile_coord.x, selected_tile_coord.y)
-				# Reset preview
-				update_preview(Vector2i(-1,-1), Vector2i(-1,-1)) 
-			# Else: Leave visuals as-is (previewed), attempt_move will handle animation/revert
-		
-		if valid_move:
-			attempt_move(selected_tile_coord, end_grid_pos)
-		
-		if current_state == State.DRAGGING:
-			current_state = State.IDLE
-		selected_tile_coord = Vector2i(-1, -1)
+	if mana >= cost:
+		input_handler.set_spell_mode(mode)
+		if mode == "catalyst":
+			print("Select a BLACK tile to transform!")
+			add_log("Select a BLACK tile!")
+		elif mode == "harvest":
+			print("Select Row to Harvest!")
+			add_log("Select Row to Harvest!")
 #endregion
 
-#region Core Mechanics
+#region Core Mechanics (Delegated)
 func attempt_move(start: Vector2i, end: Vector2i):
-	if start == end: return
-	if start.x != end.x and start.y != end.y: return # Diagonal/Invalid
-
 	print("Move: ", start, " -> ", end)
 	
-	current_state = State.PROCESSING
+	input_locked = true
+	input_handler.set_state(InputHandler.State.LOCKED)
 	
-	# 1. Perform tentative shift
-	perform_shift(start, end)
+	# 1. Tentative Shift
+	board_manager.perform_shift(start, end, sound_manager)
 	
 	# 2. Check matches
-	var matches = MatchUtils.find_matches(board, ROWS, COLS)
+	var matches = MatchUtils.find_matches(board_manager.board, ROWS, COLS)
 	
 	if matches.is_empty():
 		# Invalid Move
+		if sound_manager: sound_manager.play_error()
 		add_log("Invalid Move! No matches.")
 		
-		# Wait for animation
 		await get_tree().create_timer(0.25).timeout
 		
 		# Revert
-		perform_shift(end, start)
+		board_manager.perform_shift(end, start, null) # No sound on revert
 		await get_tree().create_timer(0.25).timeout
 		
-		current_state = State.IDLE
+		input_locked = false
+		input_handler.set_state(InputHandler.State.IDLE)
 	else:
 		# Valid Move
 		turns -= 1
 		green_matched_this_turn = false
 		
-		# Wait for animation then resolve
 		await get_tree().create_timer(0.3).timeout
 		resolve_matches()
 
-func perform_shift(start: Vector2i, end: Vector2i):
-	var mover_tile = board[start.x][start.y]
-	
-	if start.x == end.x: # Row
-		var r = start.x
-		if start.y < end.y:
-			for c in range(start.y, end.y):
-				shift_tile(r, c+1, r, c)
-		else:
-			for c in range(start.y, end.y, -1):
-				shift_tile(r, c-1, r, c)
-		board[r][end.y] = mover_tile
-		animate_tile(mover_tile, r, end.y)
-		
-	elif start.y == end.y: # Col
-		var c = start.y
-		if start.x < end.x:
-			for r in range(start.x, end.x):
-				shift_tile(r+1, c, r, c)
-		else:
-			for r in range(start.x, end.x, -1):
-				shift_tile(r-1, c, r, c)
-		board[end.x][c] = mover_tile
-		animate_tile(mover_tile, end.x, c)
-
-func shift_tile(from_r, from_c, to_r, to_c):
-	var t = board[from_r][from_c]
-	board[to_r][to_c] = t
-	animate_tile(t, to_r, to_c)
-
-func animate_tile(tile: Node2D, r: int, c: int):
-	tile.coordinates = Vector2i(r, c)
-	var tween = create_tween()
-	tween.tween_property(tile, "position", grid_to_pixel(r, c), 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-#endregion
-
-#region Matching & Scoring
 func resolve_matches():
-	var matched_tiles = MatchUtils.find_matches(board, ROWS, COLS)
+	var matched_tiles = MatchUtils.find_matches(board_manager.board, ROWS, COLS)
 	if matched_tiles.is_empty():
 		end_turn_processing()
 		return
 		
-	var groups = MatchUtils.get_match_groups(matched_tiles, board, ROWS, COLS)
+	var groups = MatchUtils.get_match_groups(matched_tiles, board_manager.board, ROWS, COLS)
 	for group in groups:
 		process_match_group(group)
 	
 	# Remove tiles
 	for tile in matched_tiles:
-		board[tile.coordinates.x][tile.coordinates.y] = null
-		tile.queue_free()
+		board_manager.remove_tile_at(tile.coordinates)
 	
 	update_ui()
 	
 	await get_tree().create_timer(0.1).timeout
-	apply_gravity()
-	refill_board()
+	board_manager.apply_gravity()
+	board_manager.refill_board()
 	
-	# Wait for animation (0.2s) + extra time for player to see results/fall
 	await get_tree().create_timer(0.6).timeout
 	resolve_matches()
 
 func end_turn_processing():
-	# No decay
-	current_state = State.IDLE
+	input_locked = false
+	input_handler.set_state(InputHandler.State.IDLE)
 	update_ui()
 	check_game_over()
 
@@ -570,7 +263,7 @@ func process_match_group(group: Array):
 	if group.is_empty(): return
 	var type = group[0].tile_type
 	var match_count = group.size()
-	var efficiency = max(1.0, (1.25)**(match_count - 3))
+	var efficiency = max(1.0, (1.25) ** (match_count - 3))
 	
 	var base_score = 0
 	if level_manager:
@@ -591,7 +284,6 @@ func process_match_group(group: Array):
 	
 	# Apply Granular Multiplier Upgrades
 	if level_manager:
-		# Generic calc: if type is RED, check "mult_red" upgrade
 		var type_str = ""
 		match type:
 			Tile.Type.RED: type_str = "mult_red"
@@ -608,29 +300,105 @@ func process_match_group(group: Array):
 	if match_score != 0:
 		add_log("Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)])
 	
+	if sound_manager: sound_manager.play_match(match_count, type)
+	
 	if type == Tile.Type.GREEN:
 		green_matched_this_turn = true
 		var gain = 0.1 * match_count * efficiency
-		
-		# Apply Upgrade
 		if level_manager:
 			var up_level = level_manager.save_manager.get_upgrade_level("mult_green")
 			gain *= (1.0 + (up_level * 0.1))
-			
 		multiplier += gain
 		add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
 	
 	if type == Tile.Type.BLUE:
 		var gain = match_count * 5 * efficiency
-		
-		# Apply Upgrade
 		if level_manager:
 			var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
 			gain *= (1.0 + (up_level * 0.1))
-			
 		mana = min(get_max_mana(), mana + gain)
 		add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
 #endregion
+
+#region Spells
+func try_cast_spell(grid_pos: Vector2i):
+	var tile = board_manager.get_tile(grid_pos.x, grid_pos.y)
+	if not tile: return
+	
+	if tile.tile_type != Tile.Type.BLACK:
+		if sound_manager: sound_manager.play_error()
+		add_log("Must select a BLACK tile!")
+		return
+		
+	var cost = get_spell_cost()
+	if mana >= cost:
+		mana -= cost
+		
+		if sound_manager: sound_manager.play_cast()
+		
+		
+		# Convert to High Value Tile
+		var target_type = Tile.Type.RED
+		if level_manager:
+			target_type = level_manager.get_highest_value_tile_type()
+			level_manager.mark_discovered(target_type)
+			
+		tile.tile_type = target_type
+		tile.update_visuals()
+		
+		add_log("Catalyst! Black -> %s!" % [Tile.Type.keys()[target_type]])
+		
+		await get_tree().create_timer(0.3).timeout
+		resolve_matches()
+	else:
+		if sound_manager: sound_manager.play_error()
+		add_log("Not enough Mana!")
+		input_handler.set_state(InputHandler.State.IDLE)
+
+func try_cast_harvest(row_idx: int):
+	var cost = 100
+	if mana >= cost:
+		mana -= cost
+		if sound_manager: sound_manager.play_cast()
+		
+		add_log("Harvesting Row %d!" % row_idx)
+		
+		# Collect and Group tiles by type
+		var tiles_to_remove = []
+		var type_groups = {}
+		
+		for c in range(COLS):
+			var t = board_manager.get_tile(row_idx, c)
+			if t:
+				# Exclude Black tiles from scoring groups
+				if t.tile_type != Tile.Type.BLACK:
+					if not type_groups.has(t.tile_type):
+						type_groups[t.tile_type] = []
+					type_groups[t.tile_type].append(t)
+				
+				tiles_to_remove.append(t)
+		
+		# Process each group as a match
+		for type in type_groups:
+			var group = type_groups[type]
+			# Process Group
+			process_match_group(group)
+		
+		# Remove all tiles in row
+		for t in tiles_to_remove:
+			board_manager.remove_tile_at(t.coordinates)
+			
+		update_ui()
+		await get_tree().create_timer(0.2).timeout
+		board_manager.apply_gravity()
+		board_manager.refill_board()
+		
+		await get_tree().create_timer(0.5).timeout
+		resolve_matches()
+	else:
+		if sound_manager: sound_manager.play_error()
+		add_log("Not enough Mana!")
+		input_handler.set_state(InputHandler.State.IDLE)
 
 func get_max_mana() -> int:
 	var base = 50
@@ -642,32 +410,79 @@ func get_spell_cost() -> int:
 	var base = 50
 	if level_manager:
 		base -= (level_manager.save_manager.get_upgrade_level("spell_cost") * 5)
-	return max(10, base) # Minimum cost 10
-
-
-
-#region Board Physics
-func apply_gravity():
-	for c in range(COLS):
-		var write = ROWS - 1
-		for r in range(ROWS - 1, -1, -1):
-			if board[r][c] != null:
-				if r != write:
-					board[write][c] = board[r][c]
-					board[r][c] = null
-					animate_tile(board[write][c], write, c)
-				write -= 1
-
-func refill_board():
-	for c in range(COLS):
-		for r in range(ROWS):
-			if board[r][c] == null:
-				spawn_tile(r, c)
-				board[r][c].position.y -= 100
-				animate_tile(board[r][c], r, c)
+	return max(10, base)
 #endregion
 
-#region UI Updates
+#region Helpers
+func add_log(msg: String):
+	if log_label:
+		log_label.text += "\n" + msg
+
+func setup_background_grid():
+	var grid_bg = $BoardFrame/GridBackground
+	if not grid_bg: return
+	for child in grid_bg.get_children():
+		child.queue_free()
+	for i in range(ROWS * COLS):
+		var cell = ColorRect.new()
+		cell.custom_minimum_size = Vector2(TILE_SIZE, TILE_SIZE)
+		var r = i / COLS
+		var c = i % COLS
+		if (r + c) % 2 == 0:
+			cell.color = Color(0.15, 0.15, 0.15, 0.8)
+		else:
+			cell.color = Color(0.2, 0.2, 0.2, 0.8)
+		grid_bg.add_child(cell)
+#endregion
+
+#region UI (Settings/Shop/Flow)
+func open_shop():
+	var shop = preload("res://Shop.tscn").instantiate()
+	add_child(shop)
+	shop.setup(level_manager, sound_manager)
+	get_tree().paused = true
+	shop.upgrade_purchased.connect(func(_key, _cost): update_ui())
+	shop.close_requested.connect(func():
+		shop.queue_free()
+		get_tree().paused = false
+		update_ui()
+	)
+
+func open_settings():
+	var settings = SettingsScene.instantiate()
+	add_child(settings)
+	settings.setup(level_manager)
+	get_tree().paused = true
+	settings.close_requested.connect(func():
+		settings.queue_free()
+		get_tree().paused = false
+		if level_manager and level_manager.save_manager:
+			sound_manager.sound_enabled = level_manager.save_manager.get_setting("sound_enabled", true)
+	)
+
+func check_game_over():
+	if level_manager and score >= level_manager.get_current_target():
+		var turns_left = turns
+		# Calculate and Save Rewards
+		var rewards = level_manager.complete_level(score, turns_left)
+		
+		# Show Screen
+		var complete_scn = preload("res://LevelComplete.tscn").instantiate()
+		ui_container.add_child(complete_scn)
+		complete_scn.setup(rewards, score, turns_left, sound_manager)
+		
+		complete_scn.continued.connect(func():
+			level_manager.advance_level()
+			complete_scn.queue_free()
+			start_next_level()
+		)
+		
+	elif turns <= 0:
+		add_log("Game Over! Out of Turns.")
+		if sound_manager: sound_manager.play_error()
+		reset_button.visible = true
+		input_handler.set_state(InputHandler.State.LOCKED)
+
 func update_ui():
 	print("UI UPDATE: Score: %s | Turns: %s | Mult: %s | Mana: %s" % [score, turns, multiplier, mana])
 	if level_label and level_manager: level_label.text = "Level: %d" % level_manager.current_level
@@ -682,11 +497,8 @@ func update_ui():
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]
 	
 	if spell_button:
-		# Dynamic Spell Button Logic
-		var selected_spell = "catalyst"
+		# Harvest Button Logic
 		if level_manager and level_manager.save_manager.get_upgrade_level("harvest") > 0:
-			# If unlocked, we might need a way to switch. For now, let's assume separate buttons or a toggle.
-			# As per request: "just add a separate button if harvest is unlocked."
 			if harvest_button:
 				harvest_button.visible = true
 				if mana >= 100:
@@ -707,21 +519,21 @@ func update_ui():
 		else:
 			spell_button.disabled = true
 			spell_button.modulate = Color(1, 1, 1) # Default
-		spell_button.visible = true # Always visible if valid
+		spell_button.visible = true
 	
 	update_legend()
 
 func setup_legend_ui():
-	# Insert into VBox
 	var vbox = $HUD/UIContainer/RightPanel/VBox
 	if not vbox: return
+	
+	# Only create if not exists (checked by legend_box usually but let's be safe)
+	if legend_box: return
 	
 	legend_box = GridContainer.new()
 	legend_box.columns = 2
 	legend_box.add_theme_constant_override("h_separation", 10)
 	
-	# Insert before LogPanel (which acts as a filler usually)
-	# LogPanel is at index 4 in scene (Level, Score, Turns, Multi, Log)
 	vbox.add_child(legend_box)
 	vbox.move_child(legend_box, 4)
 	
@@ -730,19 +542,14 @@ func setup_legend_ui():
 		var hbox = HBoxContainer.new()
 		hbox.add_theme_constant_override("separation", 5)
 		
-		# Icon
 		var icon = TextureRect.new()
 		icon.custom_minimum_size = Vector2(32, 32)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		
 		var path = Tile.TEXTURE_PATHS.get(type, "")
-		if path != "":
-			icon.texture = load(path)
-		
+		if path != "": icon.texture = load(path)
 		hbox.add_child(icon)
 		
-		# Value Label
 		var lbl = Label.new()
 		lbl.add_theme_font_size_override("font_size", 16)
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -753,121 +560,12 @@ func setup_legend_ui():
 
 func update_legend():
 	if legend_labels.is_empty() or not level_manager: return
-	
-	var names = {
-		Tile.Type.RED: "RED",
-		Tile.Type.YELLOW: "YLW",
-		Tile.Type.PURPLE: "PUR",
-		Tile.Type.ORANGE: "ORG"
-	}
-	
 	for type in legend_labels:
 		var lbl = legend_labels[type]
 		var val_text = "???"
-		
 		if level_manager.is_type_discovered(type):
 			var s = level_manager.get_tile_score(type)
 			val_text = level_manager.get_score_text(s)
-		
 		lbl.text = val_text
 		lbl.modulate = Color.WHITE
-#endregion
-
-#region Game Flow
-func check_game_over():
-	# Win Condition (Level Complete)
-	if level_manager and score >= level_manager.get_current_target():
-		# Get rewards
-		var turns_left = turns
-		var final_score = int(score)
-		var rewards = level_manager.complete_level(final_score, turns_left)
-		
-		# Show Splash
-		var splash = preload("res://LevelComplete.tscn").instantiate()
-		$HUD.add_child(splash)
-		splash.setup(rewards, final_score, turns_left)
-		
-		current_state = State.PROCESSING
-		
-		# Wait for continue
-		await splash.continued
-		splash.queue_free()
-		
-		add_log("Level Complete! +%d Gold, +%d Diamonds" % [rewards["gold"], rewards["diamonds"]])
-		start_next_level()
-		current_state = State.IDLE
-		return
-
-	# Loss Condition
-	if turns <= 0:
-		add_log("GAME OVER!")
-		print("GAME OVER")
-		current_state = State.PROCESSING # Lock inputs
-		if turns_label: turns_label.text = "GAME OVER"
-		if reset_button: reset_button.visible = true
-#endregion
-
-#region Ability Logic
-func try_cast_harvest(row_idx: int):
-	# Clear highlight immediately to avoid it getting stuck or overlapping
-	clear_harvest_preview()
-
-	var cost = 100
-	mana -= cost
-	
-	add_log("Harvesting Row %d!" % row_idx)
-	
-	# Collect tiles (using grid coordinates)
-	var row_tiles = []
-	for c in range(COLS):
-		if board[row_idx][c] != null:
-			row_tiles.append(board[row_idx][c])
-	
-	# Group by type
-	var groups = {}
-	for t in row_tiles:
-		if not groups.has(t.tile_type): groups[t.tile_type] = []
-		groups[t.tile_type].append(t)
-		
-	# Process each group as a match
-	# Note: This gives massive combo potential if row is diverse, or single big combo if uniform.
-	for type in groups:
-		if type != Tile.Type.BLACK: 
-			process_match_group(groups[type])
-	
-	# Remove all tiles
-	for t in row_tiles:
-		board[t.coordinates.x][t.coordinates.y] = null
-		t.queue_free()
-		
-	current_state = State.PROCESSING
-	apply_gravity()
-	refill_board()
-	
-	# Wait for animation
-	await get_tree().create_timer(0.6).timeout
-	resolve_matches()
-
-func try_cast_spell(grid_pos: Vector2i):
-	var tile = board[grid_pos.x][grid_pos.y]
-	if tile.tile_type == Tile.Type.BLACK:
-		var cost = get_spell_cost()
-		mana -= cost
-		var target_type = Tile.Type.RED
-		if level_manager:
-			target_type = level_manager.get_highest_value_tile_type()
-			level_manager.mark_discovered(target_type)
-			
-		tile.tile_type = target_type
-		# Update Visual
-		tile._ready() 
-		
-		print("Spell Cast! Converted Black to High Value Tile.")
-		add_log("Spell: Black -> High Value!")
-		current_state = State.PROCESSING
-		resolve_matches() # Check if this created a match
-	else:
-		print("Invalid Target. Select BLACK tile.")
-		current_state = State.IDLE
-#region Shop Logic
 #endregion

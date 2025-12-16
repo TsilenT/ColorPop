@@ -6,7 +6,9 @@ This document outlines the current logic and constraints of the game as implemen
 - **Board Size:** 8 columns x 8 rows.
 - **Limit:** 20 Turns per level.
 - **Level Targets:** $1000 + (Level \times 5000)$.
-- **Level Reward:** $100 \times Level$ Gold.
+- **Rewards:**
+    - **Gold:** 2% of Final Score.
+    - **Diamonds:** $0.5 \times TurnsRemaining \times Level$.
 
 ## II. Tile Definitions
 ### Standard Scoring Tiles
@@ -24,33 +26,47 @@ The 4 main colors (RED, YELLOW, PURPLE, ORANGE) are assigned values from a rando
 
 ### 1. Match Efficiency
 Matches larger than 3 grant exponential bonuses.
-$$Efficiency = 1.25^{(Count - 3)}$$
+$$Efficiency = \max(1.0, 1.25^{(Count - 3)})$$
+*(Floor of 1.0 prevents penalties for small matches, e.g. via Harvest Spell)*
 
 ### 2. Base Scoring
 $$MatchScore = Count \times BaseValue \times GlobalMult \times Efficiency$$
-- **Upgrades:** Specific Color Upgrades (e.g., Red Mult) add $+10\%$ to the final $MatchScore$ per level.
+- **Upgrades:** Specific Color Upgrades add $+10\%$ to the final $MatchScore$ per level.
 
 ### 3. Global Multiplier (Green)
 $$Gain = 0.1 \times Count \times Efficiency$$
 - **Effect:** Adds to the Global Multiplier (starts at 1.0x).
 - **Upgrade:** Green Mult Upgrade increases this **Gain** by $+10\%$ per level.
-- **Decay:** None (Multiplier persists through the level).
+- **Decay:** None.
 
 ### 4. Mana (Blue)
 $$Gain = Count \times 5 \times Efficiency$$
 - **Upgrade:** Blue Mult Upgrade increases this **Gain** by $+10\%$ per level.
 - **Max Mana:** $50 + (UpgradeLevel \times 10)$.
 
-### 5. Spell: "The Catalyst"
+## IV. Spells & Abilities
+### 1. "The Catalyst" (Classic)
 - **Cost:** $50 - (UpgradeLevel \times 5)$ (Minimum 10).
-- **Effect:** Transforms a selected **BLACK** tile into the **Highest Value** tile type currently on the board.
+- **Effect:** Transforms a selected **BLACK** tile into the **Highest Value** tile type.
+- **Cap:** Minimum cost reached at Level 8.
 
-## IV. Progression & Shop
-- **Gold:** Earned by completing levels.
+### 2. "Harvest" (Premium)
+- **Unlock:** 100 Diamonds.
+- **Cost:** 100 Mana.
+- **Effect:** Select a row to clear it. Tiles are collected, grouped by color, and matched.
+
+## V. Progression & Shop
+- **Currencies:**
+  - **Gold**: Main upgrade currency.
+  - **Diamonds**: Premium currency for unlocking Spells & Special Strats.
 - **Upgrades:**
-  - **Mana Cap:** +10 Max Mana.
-  - **Spell Cost:** -5 Ability Cost.
-  - **Color Mults (Red, Yel, Pur, Org):** +10% Score for that color.
-  - **Green Mult:** +10% Multiplier Gain rate.
-  - **Blue Mult:** +10% Mana Gain rate.
-- **Save System:** Tracks Gold, Upgrade Levels, and Settings persistently.
+  - **Gold Shop**: Mana Cap, Spell Cost, Color Multipliers.
+  - **Diamond Shop**:
+    - **Harvest**: Unlocks Harvest spell.
+    - **Cinderella Strat**: +25% Green Tile Spawn Rate.
+
+## VI. Systems
+- **Audio**: Procedural 8-bit sound engine (Code-generated).
+- **Visuals**:
+  - Valid spell casts tint buttons green.
+  - Harvest mode highlights target row in red.
