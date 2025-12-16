@@ -81,8 +81,13 @@ func start_animation():
 func _ready():
 	set_process_input(false) # Disable click until anim matches
 
+var _continued_pressed = false
+
 func _input(event):
+	if _continued_pressed: return
 	if event is InputEventMouseButton and event.pressed:
+		_continued_pressed = true
 		emit_signal("continued")
 	elif event is InputEventScreenTouch and event.pressed:
+		_continued_pressed = true
 		emit_signal("continued")

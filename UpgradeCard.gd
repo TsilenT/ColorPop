@@ -40,7 +40,7 @@ func setup(data, current_level: int):
 		buy_button.disabled = true
 	else:
 		if currency == "diamonds":
-			buy_button.text = "%d 💎" % current_cost # Unicode diamond or just text
+			buy_button.text = "%d d" % current_cost # Unicode diamond or just text
 			buy_button.add_theme_color_override("font_color", Color(0.26, 0.8, 1))
 		else:
 			buy_button.text = "%d g" % current_cost

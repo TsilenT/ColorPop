@@ -20,11 +20,14 @@ var GRID_OFFSET = Vector2(100, 100)
 @onready var multi_label: Label = $HUD/UIContainer/RightPanel/VBox/MultiLabel
 @onready var gold_label: Label = $HUD/UIContainer/Header/GoldContainer/GoldLabel
 @onready var diam_label: Label = $HUD/UIContainer/Header/DiamondContainer/DiamondLabel
-@onready var mana_label: Label = $HUD/UIContainer/BottomPanel/ManaLabel
-@onready var spell_button: Button = $HUD/UIContainer/BottomPanel/SpellButton
+
+@onready var mana_label: Label = $HUD/UIContainer/SpellDock/HBox/ManaContainer/ManaLabel
+@onready var mana_bar: ProgressBar = $HUD/UIContainer/SpellDock/HBox/ManaContainer/ManaBar
+@onready var spell_button: Button = $HUD/UIContainer/SpellDock/HBox/SpellButton
+@onready var harvest_button: Button = $HUD/UIContainer/SpellDock/HBox/HarvestButton
+
 @onready var shop_button: TextureButton = $HUD/UIContainer/Header/Buttons/ShopButton
 @onready var settings_button: TextureButton = $HUD/UIContainer/Header/Buttons/SettingsButton
-@onready var harvest_button: Button = $HUD/UIContainer/BottomPanel/HarvestButton
 
 @onready var reset_button: Button = $HUD/UIContainer/RightPanel/VBox/ResetButton
 @onready var log_label: RichTextLabel = $HUD/UIContainer/RightPanel/VBox/LogPanel/LogLabel
@@ -137,6 +140,35 @@ func resize_game():
 			for c in range(COLS):
 				var tile = board_manager.get_tile(r, c)
 				if tile: tile.position = board_manager.grid_to_pixel(r, c)
+	
+	update_dock_layout()
+
+func update_dock_layout():
+	# Center SpellDock on the BOARD, not the screen
+	var dock = $HUD/UIContainer/SpellDock
+	var board_frame = $BoardFrame
+	if dock and board_frame:
+		# Calculate dynamic width based on visibility
+		var harvest_btn = $HUD/UIContainer/SpellDock/HBox/HarvestButton
+		var width = 300 # Base small size
+		if harvest_btn and harvest_btn.visible:
+			width = 480 # Expanded size
+		
+		# Determine Board Center X in UI coordinates
+		# Board X is at 45 + margin_x
+		# UIContainer is full screen
+		var vp_size = get_viewport_rect().size
+		var target_width = 1280.0
+		var margin_x = max(0, (vp_size.x - target_width) / 2.0)
+		var board_center_x = (45.0 + margin_x) + (600.0 / 2.0)
+		
+		# Set Position manually (override anchors if needed, or use them)
+		# Simplest is to set global position X centered on board_center_x
+		dock.custom_minimum_size.x = width
+		dock.size.x = width
+		dock.position.x = board_center_x - (width / 2.0)
+		# Keep Y at bottom
+		dock.position.y = vp_size.y - 80
 #endregion
 
 func start_next_level():
@@ -183,11 +215,12 @@ func activate_spell_mode(mode: String = "catalyst"):
 	if input_handler.current_state == InputHandler.State.CASTING and input_handler.active_spell_type == mode:
 		input_handler.set_state(InputHandler.State.IDLE)
 		add_log("Spell Cancelled.")
+		update_ui() # Ensure UI reflects cancelled state
 		return
 
 	var cost = 0
 	if mode == "catalyst": cost = get_spell_cost()
-	elif mode == "harvest": cost = 100
+	elif mode == "harvest": cost = 50 # Rebalanced 100 -> 50
 	
 	if mana >= cost:
 		input_handler.set_spell_mode(mode)
@@ -197,6 +230,7 @@ func activate_spell_mode(mode: String = "catalyst"):
 		elif mode == "harvest":
 			print("Select Row to Harvest!")
 			add_log("Select Row to Harvest!")
+		update_ui() # Update visuals for active state
 #endregion
 
 #region Core Mechanics (Delegated)
@@ -359,7 +393,7 @@ func try_cast_spell(grid_pos: Vector2i):
 		input_handler.set_state(InputHandler.State.IDLE)
 
 func try_cast_harvest(row_idx: int):
-	var cost = 100
+	var cost = 50 # Rebalanced
 	if mana >= cost:
 		mana -= cost
 		if sound_manager: sound_manager.play_cast()
@@ -465,6 +499,8 @@ func open_settings():
 	)
 
 func check_game_over():
+	if ui_container.has_node("LevelComplete"): return
+	
 	if level_manager and score >= level_manager.get_current_target():
 		var turns_left = turns
 		# Calculate and Save Rewards
@@ -472,6 +508,7 @@ func check_game_over():
 		
 		# Show Screen
 		var complete_scn = preload("res://LevelComplete.tscn").instantiate()
+		complete_scn.name = "LevelComplete"
 		ui_container.add_child(complete_scn)
 		complete_scn.setup(rewards, score, turns_left, sound_manager)
 		
@@ -497,33 +534,53 @@ func update_ui():
 	if multi_label: multi_label.text = "Multiplier: %.2fx" % multiplier
 	if gold_label and level_manager: gold_label.text = str(level_manager.save_manager.get_gold())
 	if diam_label and level_manager: diam_label.text = str(level_manager.save_manager.get_diamonds())
+	
 	var max_mana = get_max_mana()
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]
+	if mana_bar:
+		mana_bar.max_value = max_mana
+		mana_bar.value = mana
 	
+	# Determine Active State (Green if casting this specific spell)
+	var is_casting = (input_handler.current_state == InputHandler.State.CASTING)
+	var active_spell = input_handler.active_spell_type if is_casting else ""
+	
+	# Catalyst Button
 	if spell_button:
-		# Harvest Button Logic
-		if level_manager and level_manager.save_manager.get_upgrade_level("harvest") > 0:
-			if harvest_button:
-				harvest_button.visible = true
-				if mana >= 100:
-					harvest_button.disabled = false
-					harvest_button.modulate = Color(0.6, 1.0, 0.6) # Green tint
-				else:
-					harvest_button.disabled = true
-					harvest_button.modulate = Color(1, 1, 1) # Default
-				harvest_button.text = "Cast Harvest (100)"
-		else:
-			if harvest_button: harvest_button.visible = false
-			
 		var cost = get_spell_cost()
-		spell_button.text = "Cast Catalyst (%d)" % cost
-		if mana >= cost:
+		spell_button.text = "Catalyst (%d)" % cost
+		
+		if active_spell == "catalyst":
+			# Active State
 			spell_button.disabled = false
-			spell_button.modulate = Color(0.6, 1.0, 0.6) # Green tint
+			spell_button.modulate = Color(0.6, 1.0, 0.6) # Green
+		elif mana >= cost:
+			# Available State
+			spell_button.disabled = false
+			spell_button.modulate = Color(1, 1, 1) # Normal
 		else:
+			# Disabled State
 			spell_button.disabled = true
-			spell_button.modulate = Color(1, 1, 1) # Default
-		spell_button.visible = true
+			spell_button.modulate = Color(1, 1, 1) # Normal dimming handles by disabled
+			
+	# Harvest Button
+	if harvest_button:
+		if level_manager and level_manager.save_manager.get_upgrade_level("harvest") > 0:
+			harvest_button.visible = true
+			var h_cost = 50
+			harvest_button.text = "Harvest (%d)" % h_cost
+			
+			if active_spell == "harvest":
+				harvest_button.disabled = false
+				harvest_button.modulate = Color(0.6, 1.0, 0.6) # Green
+			elif mana >= h_cost:
+				harvest_button.disabled = false
+				harvest_button.modulate = Color(1, 1, 1)
+			else:
+				harvest_button.disabled = true
+				harvest_button.modulate = Color(1, 1, 1)
+		else:
+			harvest_button.visible = false
 	
 	update_legend()
 
