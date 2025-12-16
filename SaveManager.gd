@@ -18,7 +18,9 @@ var data = {
 		"cinderella": 0
 	},
 	"settings": {
-		"highlight_enabled": true
+		"highlight_enabled": true,
+		"sfx_volume": 0.5,
+		"music_volume": 0.5
 	},
 	"diamonds": 0
 }

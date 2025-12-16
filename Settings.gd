@@ -4,9 +4,11 @@ extends CanvasLayer
 signal close_requested
 
 var level_manager
+var sound_manager
 
 @onready var highlight_toggle: CheckButton = $Panel/VBoxContainer/HighlightToggle
-@onready var sound_toggle: CheckButton = $Panel/VBoxContainer/SoundToggle
+@onready var sfx_slider: HSlider = $Panel/VBoxContainer/SFXSlider
+@onready var music_slider: HSlider = $Panel/VBoxContainer/MusicSlider
 @onready var close_button: Button = $Panel/CloseButton
 
 func _ready():
@@ -14,26 +16,41 @@ func _ready():
 		close_button.pressed.connect(_on_close_pressed)
 	if highlight_toggle:
 		highlight_toggle.toggled.connect(_on_highlight_toggled)
-	if sound_toggle:
-		sound_toggle.toggled.connect(_on_sound_toggled)
+	if sfx_slider:
+		sfx_slider.value_changed.connect(_on_sfx_volume_changed)
+	if music_slider:
+		music_slider.value_changed.connect(_on_music_volume_changed)
 
-func setup(lm):
+func setup(lm, sm = null):
 	level_manager = lm
+	sound_manager = sm
 	if level_manager and level_manager.save_manager:
 		var hl_enabled = level_manager.save_manager.get_setting("highlight_enabled", true)
 		if highlight_toggle: highlight_toggle.button_pressed = hl_enabled
 		
-		var snd_enabled = level_manager.save_manager.get_setting("sound_enabled", true)
-		if sound_toggle: sound_toggle.button_pressed = snd_enabled
+		var sfx_vol = level_manager.save_manager.get_setting("sfx_volume", 0.5)
+		if sfx_slider: sfx_slider.value = sfx_vol
+		
+		var mus_vol = level_manager.save_manager.get_setting("music_volume", 0.5)
+		if music_slider: music_slider.value = mus_vol
 		
 func _on_highlight_toggled(toggled_on: bool):
 	if level_manager and level_manager.save_manager:
 		level_manager.save_manager.set_setting("highlight_enabled", toggled_on)
 
-func _on_sound_toggled(toggled_on: bool):
+func _on_sfx_volume_changed(value: float):
 	if level_manager and level_manager.save_manager:
-		level_manager.save_manager.set_setting("sound_enabled", toggled_on)
+		level_manager.save_manager.set_setting("sfx_volume", value)
+	if sound_manager:
+		sound_manager.sfx_volume = value
+
+func _on_music_volume_changed(value: float):
+	if level_manager and level_manager.save_manager:
+		level_manager.save_manager.set_setting("music_volume", value)
+	if sound_manager:
+		sound_manager.music_volume = value
 		
 func _on_close_pressed():
+	if sound_manager: sound_manager.play_tone(400, 0.05)
 	emit_signal("close_requested")
 	queue_free()

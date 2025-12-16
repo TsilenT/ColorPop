@@ -1,0 +1,5 @@
+# Copy this file to local_settings.ps1 and update with your paths
+
+$ITCH_USER = "your_itch_username"
+$GODOT_PATH = "C:\Path\To\Godot_console.exe"
+$BUTLER_PATH = "C:\Path\To\butler.exe"

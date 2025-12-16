@@ -17,3 +17,4 @@ mono_crash.*.json
 
 /builds
 /.vscode
+/local_settings.ps1

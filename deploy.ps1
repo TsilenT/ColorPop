@@ -1,9 +1,20 @@
+# Load local settings if they exist
+if (Test-Path "$PSScriptRoot\local_settings.ps1") {
+    . "$PSScriptRoot\local_settings.ps1"
+}
+else {
+    Write-Warning "local_settings.ps1 not found! Using default/environment values."
+}
+
 # Configuration
-$ITCH_USER = "sihl"
+if (-not $ITCH_USER) { $ITCH_USER = "sihl" }
 $ITCH_GAME = "colorpop"
 $CHANNEL = "html5"
-$GODOT_PATH = "C:\Users\sihl\Desktop\Godot_v4.3-stable_win64_console.exe"
-$BUTLER_PATH = "C:\Program Files\butler\butler.exe"
+if (-not $GODOT_PATH) { $GODOT_PATH = "C:\Users\sihl\Desktop\Godot_v4.3-stable_win64_console.exe" }
+if (-not $BUTLER_PATH) { $BUTLER_PATH = "C:\Program Files\butler\butler.exe" }
+
+Write-Host "Using Godot Path: $GODOT_PATH" -ForegroundColor Gray
+Write-Host "Using Butler Path: $BUTLER_PATH" -ForegroundColor Gray
 $BUILD_DIR = ".\builds\web"
 $PRESET_NAME = "Web"
 

@@ -34,7 +34,10 @@ var diamond_upgrades = [
 
 func _ready():
 	if close_btn:
-		close_btn.pressed.connect(func(): emit_signal("close_requested"))
+		close_btn.pressed.connect(func():
+			if sound_manager: sound_manager.play_tone(400, 0.05)
+			emit_signal("close_requested")
+		)
 	if gold_tab:
 		gold_tab.pressed.connect(switch_tab.bind("gold"))
 	if diam_tab:

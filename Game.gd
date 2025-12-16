@@ -80,7 +80,10 @@ func setup_managers():
 	
 	# Apply Settings
 	if level_manager and level_manager.save_manager:
-		sound_manager.sound_enabled = level_manager.save_manager.get_setting("sound_enabled", true)
+		# sound_manager.sound_enabled = level_manager.save_manager.get_setting("sound_enabled", true)
+		sound_manager.sfx_volume = level_manager.save_manager.get_setting("sfx_volume", 0.5)
+		sound_manager.music_volume = level_manager.save_manager.get_setting("music_volume", 0.5)
+		sound_manager.set_music_volume(sound_manager.music_volume)
 		
 	# Board
 	board_manager = BoardManager.new()
@@ -440,6 +443,7 @@ func open_shop():
 	var shop = preload("res://Shop.tscn").instantiate()
 	add_child(shop)
 	shop.setup(level_manager, sound_manager)
+	if sound_manager: sound_manager.play_tone(400, 0.05)
 	get_tree().paused = true
 	shop.upgrade_purchased.connect(func(_key, _cost): update_ui())
 	shop.close_requested.connect(func():
@@ -451,13 +455,13 @@ func open_shop():
 func open_settings():
 	var settings = SettingsScene.instantiate()
 	add_child(settings)
-	settings.setup(level_manager)
+	settings.setup(level_manager, sound_manager)
+	if sound_manager: sound_manager.play_tone(400, 0.05)
 	get_tree().paused = true
 	settings.close_requested.connect(func():
 		settings.queue_free()
 		get_tree().paused = false
-		if level_manager and level_manager.save_manager:
-			sound_manager.sound_enabled = level_manager.save_manager.get_setting("sound_enabled", true)
+		# Volume is updated live in Settings.gd, no need to re-apply here
 	)
 
 func check_game_over():

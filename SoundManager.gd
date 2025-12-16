@@ -2,13 +2,15 @@ class_name SoundManager
 extends Node
 
 var player: AudioStreamPlayer
+var music_player: AudioStreamPlayer
 var generator: AudioStreamGenerator
 var playback: AudioStreamGeneratorPlayback
 
 const SAMPLE_RATE = 22050 # Lower sample rate for performance (retro feel)
 const PULSE_HZ = 440.0
 
-var sound_enabled: bool = true
+var sfx_volume: float = 0.5
+var music_volume: float = 0.5: set = set_music_volume
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS # Play even when game paused (Shop)
@@ -24,9 +26,36 @@ func _ready():
 	player.play()
 	
 	playback = player.get_stream_playback()
+	
+	setup_music()
+
+func setup_music():
+	music_player = AudioStreamPlayer.new()
+	add_child(music_player)
+	var stream = load("res://assets/CrystalCascades.ogg")
+	if stream:
+		if stream is AudioStreamOggVorbis:
+			stream.loop = true # Ensure looping is on
+		music_player.stream = stream
+		music_player.volume_db = -10.0 # Start a bit lower so it's not blasting
+	
+	# Trigger initial state
+	set_music_volume(music_volume)
+
+func set_music_volume(val: float):
+	music_volume = val
+	if music_player:
+		# Convert linear energy (0-1) to decibels
+		music_player.volume_db = linear_to_db(music_volume)
+		
+		# Allow muting
+		if music_volume <= 0.01:
+			if music_player.playing: music_player.stop()
+		else:
+			if not music_player.playing and music_player.stream: music_player.play()
 
 func play_tone(freq: float, duration: float, volume: float = 0.5, wave_type: String = "square"):
-	if not sound_enabled: return
+	if sfx_volume <= 0.01: return
 	if not playback: return
 	var frames = int(SAMPLE_RATE * duration)
 	var phase = 0.0
@@ -52,7 +81,7 @@ func play_tone(freq: float, duration: float, volume: float = 0.5, wave_type: Str
 		# Simple envelope (fade out)
 		var env = 1.0 - (float(i) / frames)
 		
-		var sample = val * volume * env
+		var sample = val * volume * env * sfx_volume
 		buffer[i] = Vector2(sample, sample)
 		
 		phase = fmod(phase + increment, 1.0)
@@ -113,7 +142,7 @@ func play_cast():
 	play_sweep(800, 1200, 0.2)
 
 func play_sweep(start_freq: float, end_freq: float, duration: float, volume: float = 0.5):
-	if not sound_enabled: return
+	if sfx_volume <= 0.01: return
 	if not playback: return
 	var frames = int(SAMPLE_RATE * duration)
 	var phase = 0.0
@@ -130,7 +159,7 @@ func play_sweep(start_freq: float, end_freq: float, duration: float, volume: flo
 		var val = (phase * 2.0) - 1.0
 		var env = 1.0 - t
 		
-		var sample = val * volume * env
+		var sample = val * volume * env * sfx_volume
 		buffer[i] = Vector2(sample, sample)
 		
 		phase = fmod(phase + increment, 1.0)
@@ -148,7 +177,7 @@ func play_diamond_tick():
 	play_one_shot_tone(2500 + randf() * 500, 0.05, 0.3, "triangle")
 
 func play_one_shot_tone(freq: float, duration: float, volume: float = 0.5, wave_type: String = "square"):
-	if not sound_enabled: return
+	if sfx_volume <= 0.01: return
 	
 	var temp_player = AudioStreamPlayer.new()
 	add_child(temp_player)
@@ -181,7 +210,7 @@ func play_one_shot_tone(freq: float, duration: float, volume: float = 0.5, wave_
 			"noise": val = (randf() * 2.0) - 1.0
 			
 		var env = 1.0 - (float(i) / frames)
-		var sample = val * volume * env
+		var sample = val * volume * env * sfx_volume
 		buffer[i] = Vector2(sample, sample)
 		phase = fmod(phase + increment, 1.0)
 		
