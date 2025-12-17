@@ -76,6 +76,16 @@ func _ready():
 	setup_legend_ui()
 	update_legend()
 
+func get_upgrade_key(type: Tile.Type) -> String:
+	match type:
+		Tile.Type.RED: return "mult_red"
+		Tile.Type.YELLOW: return "mult_yellow"
+		Tile.Type.PURPLE: return "mult_purple"
+		Tile.Type.ORANGE: return "mult_orange"
+		Tile.Type.GREEN: return "mult_green"
+		Tile.Type.BLUE: return "mult_blue"
+	return ""
+
 func setup_managers():
 	# Audio
 	sound_manager = SoundManager.new()
@@ -130,6 +140,7 @@ func resize_game():
 		board_frame.position.x = 45.0 + margin_x
 		
 	# Update Logic Offset
+	# Revert to original Logic Offset causing "good alignment"
 	GRID_OFFSET.x = 100.0 + margin_x
 	
 	# Propagate to Board Manager
@@ -144,30 +155,33 @@ func resize_game():
 	update_dock_layout()
 
 func update_dock_layout():
-	# Center SpellDock on the BOARD, not the screen
+	# Align SpellDock exactly with the TILE GRID (Visual Tiles)
+	# User reported Frame was at 45, Grid at 100.
+	# To center under the "Board" (Tiles), we align to GRID_OFFSET.
 	var dock = $HUD/UIContainer/SpellDock
-	var board_frame = $BoardFrame
-	if dock and board_frame:
+	# Grid metrics
+	var grid_width = COLS * TILE_SIZE # 560
+	
+	if dock:
 		# Calculate dynamic width based on visibility
 		var harvest_btn = $HUD/UIContainer/SpellDock/HBox/HarvestButton
-		var width = 300 # Base small size
+		# Min Content: 120 (Mana) + 160 (Spell) + 20 (Sep) + 32 (Margins) = 332.
+		var target_width = 340 # Compact size (enough for content + margins)
 		if harvest_btn and harvest_btn.visible:
-			width = 480 # Expanded size
+			target_width = COLS * TILE_SIZE # Full Grid Width (560)
+			
+		dock.custom_minimum_size.x = target_width
+		dock.size.x = target_width
 		
-		# Determine Board Center X in UI coordinates
-		# Board X is at 45 + margin_x
-		# UIContainer is full screen
-		var vp_size = get_viewport_rect().size
-		var target_width = 1280.0
-		var margin_x = max(0, (vp_size.x - target_width) / 2.0)
-		var board_center_x = (45.0 + margin_x) + (600.0 / 2.0)
+		# Align Center of Dock with Center of Grid
+		# Grid Left = GRID_OFFSET.x - 35 = 65.
+		# Grid Center = 65 + (560 / 2) = 345.
+		var grid_center_x = (GRID_OFFSET.x - (TILE_SIZE / 2.0)) + ((COLS * TILE_SIZE) / 2.0)
 		
-		# Set Position manually (override anchors if needed, or use them)
-		# Simplest is to set global position X centered on board_center_x
-		dock.custom_minimum_size.x = width
-		dock.size.x = width
-		dock.position.x = board_center_x - (width / 2.0)
+		dock.position.x = grid_center_x - (target_width / 2.0)
+		
 		# Keep Y at bottom
+		var vp_size = get_viewport_rect().size
 		dock.position.y = vp_size.y - 80
 #endregion
 
@@ -267,6 +281,7 @@ func attempt_move(start: Vector2i, end: Vector2i):
 		await get_tree().create_timer(0.3).timeout
 		resolve_matches()
 
+
 func resolve_matches():
 	var matched_tiles = MatchUtils.find_matches(board_manager.board, ROWS, COLS)
 	if matched_tiles.is_empty():
@@ -277,15 +292,17 @@ func resolve_matches():
 	for group in groups:
 		process_match_group(group)
 	
-	# Remove tiles
-	for tile in matched_tiles:
-		board_manager.remove_tile_at(tile.coordinates)
-	
 	update_ui()
-	
-	await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.2).timeout
 	board_manager.apply_gravity()
+	await get_tree().create_timer(0.1).timeout
 	board_manager.refill_board()
+	
+	# Reset Spawn Flags for next cascade step
+	for r in range(ROWS):
+		for c in range(COLS):
+			var t = board_manager.get_tile(r, c)
+			if t: t.is_newly_spawned = false
 	
 	await get_tree().create_timer(0.6).timeout
 	resolve_matches()
@@ -298,63 +315,131 @@ func end_turn_processing():
 
 func process_match_group(group: Array):
 	if group.is_empty(): return
-	var type = group[0].tile_type
+
 	var match_count = group.size()
+	
+	# Robust Type Detection: Find first non-diamond
+	var type = Tile.Type.DIAMOND # Default to Diamond if all are diamonds
+	var has_concrete_type = false
+	
+	for t in group:
+		if t.tile_type != Tile.Type.DIAMOND:
+			type = t.tile_type
+			has_concrete_type = true
+			break
+	
+	var type_name = Tile.Type.keys()[type]
 	var efficiency = max(1.0, (1.25) ** (match_count - 3))
 	
-	var base_score = 0
-	if level_manager:
+	# Discovery
+	if has_concrete_type and level_manager:
 		level_manager.mark_discovered(type)
-		base_score = level_manager.get_tile_score(type)
 	
-	var type_name = "Unknown"
-	match type:
-		Tile.Type.RED: type_name = "RED"
-		Tile.Type.YELLOW: type_name = "YELLOW"
-		Tile.Type.ORANGE: type_name = "ORANGE"
-		Tile.Type.BLACK: type_name = "BLACK"
-		Tile.Type.PURPLE: type_name = "PURPLE"
-		Tile.Type.GREEN: type_name = "GREEN"
-		Tile.Type.BLUE: type_name = "BLUE"
+	# Scoring
+	var match_score = 0.0
+	var base_score = 10
+	if level_manager: base_score = level_manager.get_tile_score(type)
 	
-	var match_score = match_count * base_score * multiplier * efficiency
+	var group_upgrade_mult = 1.0
+	if has_concrete_type:
+		var t_key = get_upgrade_key(type)
+		if t_key != "" and level_manager:
+			var t_level = level_manager.save_manager.get_upgrade_level(t_key)
+			group_upgrade_mult = (1.0 + (t_level * 0.1))
 	
-	# Apply Granular Multiplier Upgrades
-	if level_manager:
-		var type_str = ""
-		match type:
-			Tile.Type.RED: type_str = "mult_red"
-			Tile.Type.YELLOW: type_str = "mult_yellow"
-			Tile.Type.PURPLE: type_str = "mult_purple"
-			Tile.Type.ORANGE: type_str = "mult_orange"
+	# 2x Multiplier per Diamond
+	var diamond_count = 0
+	for t in group:
+		if t.tile_type == Tile.Type.DIAMOND:
+			diamond_count += 1
+			
+	var diamond_mult = 1.0
+	if diamond_count > 0:
+		diamond_mult = pow(2, diamond_count)
+	
+	for t in group:
+		var tile_pts = 0.0
+		var is_diamond = (t.tile_type == Tile.Type.DIAMOND)
 		
-		if type_str != "":
-			var up_level = level_manager.save_manager.get_upgrade_level(type_str)
-			match_score *= (1.0 + (up_level * 0.1))
-	
+		# Diamond Reward Logic (Log +1)
+		if is_diamond:
+			if level_manager and level_manager.save_manager:
+				level_manager.save_manager.add_diamonds(1)
+				
+				# Spawn Floating Text
+				var ft = preload("res://FloatingText.tscn").instantiate()
+				get_parent().add_child(ft) # Add to scene root or HUD
+				# Position at tile (need visual position)
+				# Add jitter so multiple rewards don't stack perfectly
+				var jitter = Vector2(randf_range(-20, 20), randf_range(-20, 20))
+				ft.position = t.global_position + jitter
+				ft.setup("+1 Diamond!", Color(0, 1, 1)) # Cyan
+				
+				# Log handled in summary
+				
+		if not has_concrete_type:
+			tile_pts = 300
+		else:
+			tile_pts = base_score * multiplier * efficiency * group_upgrade_mult
+		
+		match_score += tile_pts
+		
+	# Apply Diamond Multiplier to TOTAL match score
+	match_score *= diamond_mult
+		
+	# Side Effects (Green/Blue)
+	if has_concrete_type:
+		if type == Tile.Type.GREEN:
+			green_matched_this_turn = true
+			var gain = 0.1 * match_count * efficiency * diamond_mult # Diamonds should buff side effects too? Let's say yes for score, but maybe not side effects? User said "result". Assuming score.
+			# Actually, user said "total match group result". I will only apply to Score for now to avoid breaking balance of Mana/Mult too hard.
+			
+			if level_manager:
+				var up_level = level_manager.save_manager.get_upgrade_level("mult_green")
+				gain = (gain / diamond_mult) * (1.0 + (up_level * 0.1)) # Re-calc without diamond mult if I strictly followed score only
+			
+			multiplier += gain
+			add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
+		
+		if type == Tile.Type.BLUE:
+			var gain = match_count * 5 * efficiency
+			if level_manager:
+				var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
+				gain *= (1.0 + (up_level * 0.1))
+			mana = min(get_max_mana(), mana + gain)
+			add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
+
 	score = max(0, score + match_score)
 	
 	if match_score != 0:
-		add_log("Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)])
+		var log_msg = "Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)]
+		if diamond_count > 0:
+			log_msg += "\n(Diamond Bonus: x%d! +%d Diamond)" % [int(diamond_mult), diamond_count]
+		add_log(log_msg)
 	
 	if sound_manager: sound_manager.play_match(match_count, type)
+
+	# Default Removal / Spawn Logic
+	var diamond_level = 0
+	if level_manager:
+		diamond_level = level_manager.save_manager.get_upgrade_level("super_diamond")
 	
-	if type == Tile.Type.GREEN:
-		green_matched_this_turn = true
-		var gain = 0.1 * match_count * efficiency
-		if level_manager:
-			var up_level = level_manager.save_manager.get_upgrade_level("mult_green")
-			gain *= (1.0 + (up_level * 0.1))
-		multiplier += gain
-		add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
+	var spawn_chance = diamond_level * 0.01 # 1% per level
+	var can_spawn = (match_count > 3)
 	
-	if type == Tile.Type.BLUE:
-		var gain = match_count * 5 * efficiency
-		if level_manager:
-			var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
-			gain *= (1.0 + (up_level * 0.1))
-		mana = min(get_max_mana(), mana + gain)
-		add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
+	for tile in group:
+		var spawned = false
+		if can_spawn and diamond_level > 0 and tile.tile_type != Tile.Type.DIAMOND:
+			if randf() < spawn_chance:
+				tile.tile_type = Tile.Type.DIAMOND
+				tile.update_visuals()
+				spawned = true
+				if sound_manager: sound_manager.play_cast()
+				add_log("SUPER DIAMOND SPAWNED!")
+		
+		if not spawned:
+			if is_instance_valid(tile) and not tile.is_queued_for_deletion():
+				board_manager.remove_tile_at(tile.coordinates)
 #endregion
 
 #region Spells
@@ -554,14 +639,26 @@ func update_ui():
 			# Active State
 			spell_button.disabled = false
 			spell_button.modulate = Color(0.6, 1.0, 0.6) # Green
+			spell_button.remove_theme_color_override("font_color")
+			spell_button.remove_theme_color_override("font_hover_color")
+			spell_button.remove_theme_color_override("font_pressed_color")
+			spell_button.remove_theme_color_override("font_focus_color")
 		elif mana >= cost:
 			# Available State
 			spell_button.disabled = false
 			spell_button.modulate = Color(1, 1, 1) # Normal
+			spell_button.add_theme_color_override("font_color", Color.GREEN)
+			spell_button.add_theme_color_override("font_hover_color", Color.GREEN)
+			spell_button.add_theme_color_override("font_pressed_color", Color.GREEN)
+			spell_button.add_theme_color_override("font_focus_color", Color.GREEN)
 		else:
 			# Disabled State
 			spell_button.disabled = true
 			spell_button.modulate = Color(1, 1, 1) # Normal dimming handles by disabled
+			spell_button.remove_theme_color_override("font_color")
+			spell_button.remove_theme_color_override("font_hover_color")
+			spell_button.remove_theme_color_override("font_pressed_color")
+			spell_button.remove_theme_color_override("font_focus_color")
 			
 	# Harvest Button
 	if harvest_button:
@@ -573,12 +670,24 @@ func update_ui():
 			if active_spell == "harvest":
 				harvest_button.disabled = false
 				harvest_button.modulate = Color(0.6, 1.0, 0.6) # Green
+				harvest_button.remove_theme_color_override("font_color")
+				harvest_button.remove_theme_color_override("font_hover_color")
+				harvest_button.remove_theme_color_override("font_pressed_color")
+				harvest_button.remove_theme_color_override("font_focus_color")
 			elif mana >= h_cost:
 				harvest_button.disabled = false
 				harvest_button.modulate = Color(1, 1, 1)
+				harvest_button.add_theme_color_override("font_color", Color.GREEN)
+				harvest_button.add_theme_color_override("font_hover_color", Color.GREEN)
+				harvest_button.add_theme_color_override("font_pressed_color", Color.GREEN)
+				harvest_button.add_theme_color_override("font_focus_color", Color.GREEN)
 			else:
 				harvest_button.disabled = true
 				harvest_button.modulate = Color(1, 1, 1)
+				harvest_button.remove_theme_color_override("font_color")
+				harvest_button.remove_theme_color_override("font_hover_color")
+				harvest_button.remove_theme_color_override("font_pressed_color")
+				harvest_button.remove_theme_color_override("font_focus_color")
 		else:
 			harvest_button.visible = false
 	

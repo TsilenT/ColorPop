@@ -1,10 +1,11 @@
 class_name Tile
 extends Area2D
 
-enum Type {RED, YELLOW, GREEN, BLUE, BLACK, PURPLE, ORANGE}
+enum Type {RED, YELLOW, GREEN, BLUE, BLACK, PURPLE, ORANGE, DIAMOND}
 
 @export var tile_type: Type = Type.RED
 @export var coordinates: Vector2i # To store its position (row, col)
+var is_newly_spawned = false
 
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var icon_label: Label = $IconLabel
@@ -16,7 +17,8 @@ const TEXTURE_PATHS = {
 	Type.BLUE: "res://assets/tile_blue.svg",
 	Type.BLACK: "res://assets/tile_black.svg",
 	Type.PURPLE: "res://assets/tile_purple.svg",
-	Type.ORANGE: "res://assets/tile_orange.svg"
+	Type.ORANGE: "res://assets/tile_orange.svg",
+	Type.DIAMOND: "res://assets/tile_diamond.svg"
 }
 
 func _ready():

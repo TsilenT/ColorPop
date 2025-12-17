@@ -18,6 +18,9 @@ var sound_manager: SoundManager
 var _last_gold_tick: int = -1
 var _last_diam_tick: int = -1
 
+var tween: Tween
+var animation_finished: bool = false
+
 func setup(rewards: Dictionary, final_score: int, turns_left: int, sound_mgr: SoundManager = null):
 	# Initial State
 	current_score = final_score
@@ -33,10 +36,12 @@ func setup(rewards: Dictionary, final_score: int, turns_left: int, sound_mgr: So
 	
 	cont_label.modulate.a = 0
 	
+	set_process_input(true) # Enable input immediately to allow skipping
 	start_animation()
 
 func start_animation():
-	var tween = create_tween()
+	if tween: tween.kill()
+	tween = create_tween()
 	
 	_last_gold_tick = 0
 	_last_diam_tick = 0
@@ -51,9 +56,9 @@ func start_animation():
 		gold_reward.text = "+%d Gold" % val
 		if val > _last_gold_tick:
 			_last_gold_tick = val
-			if sound_manager and val % 2 == 0: # Rate limit slightly (every 2 gold) or checks
+			if sound_manager and val % 2 == 0:
 				sound_manager.play_gold_tick()
-			elif sound_manager and target_gold < 20: # If small amount, play every tick
+			elif sound_manager and target_gold < 20:
 				sound_manager.play_gold_tick()
 	, 0, target_gold, 1.5)
 	
@@ -76,18 +81,34 @@ func start_animation():
 	
 	# End: Show Continue
 	tween.tween_property(cont_label, "modulate:a", 1.0, 0.5)
-	tween.tween_callback(func(): set_process_input(true))
+	tween.tween_callback(func(): animation_finished = true)
+
+func skip_animation():
+	if tween: tween.kill()
+	
+	# Snap to final values
+	score_val.text = "0"
+	gold_reward.text = "+%d Gold" % target_gold
+	turns_val.text = "0"
+	diam_reward.text = "+%d" % target_diam
+	cont_label.modulate.a = 1.0
+	
+	animation_finished = true
+	
+	# Play a finish sound?
+	if sound_manager: sound_manager.play_ui_click()
 
 func _ready():
-	set_process_input(false) # Disable click until anim matches
+	set_process_input(false)
 
 var _continued_pressed = false
 
 func _input(event):
 	if _continued_pressed: return
-	if event is InputEventMouseButton and event.pressed:
-		_continued_pressed = true
-		emit_signal("continued")
-	elif event is InputEventScreenTouch and event.pressed:
-		_continued_pressed = true
-		emit_signal("continued")
+	
+	if (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+		if not animation_finished:
+			skip_animation()
+		else:
+			_continued_pressed = true
+			emit_signal("continued")

@@ -29,12 +29,18 @@ func setup(bm: BoardManager, lm: LevelManager, visual_container: Node2D):
 	container = visual_container
 
 func set_state(state: State):
+	if current_state == State.DRAGGING and state != State.DRAGGING:
+		cancel_drag()
+		
 	current_state = state
 	if state == State.IDLE:
 		cleanup_highlights()
 		selected_tile_coord = Vector2i(-1, -1)
 		
 func set_spell_mode(mode: String):
+	if current_state == State.DRAGGING:
+		cancel_drag()
+		
 	active_spell_type = mode
 	current_state = State.CASTING
 	cleanup_highlights()
@@ -49,8 +55,6 @@ func cleanup_highlights():
 	if col_highlight:
 		col_highlight.queue_free()
 		col_highlight = null
-	# Keep harvest highlight logic separate or clean here? 
-	# Game.gd cleared harvest preview explicitly, let's include it
 	if harvest_highlight:
 		harvest_highlight.queue_free()
 		harvest_highlight = null
@@ -110,8 +114,6 @@ func handle_click_release(pos: Vector2):
 	if current_state == State.DRAGGING:
 		var end_grid_pos = board_manager.pixel_to_grid(pos)
 		
-		cleanup_highlights()
-		
 		var valid = false
 		if board_manager.is_valid_coord(end_grid_pos):
 			if selected_tile_coord != end_grid_pos:
@@ -119,21 +121,35 @@ func handle_click_release(pos: Vector2):
 				if selected_tile_coord.x == end_grid_pos.x or selected_tile_coord.y == end_grid_pos.y:
 					valid = true
 		
-		# Reset tile visual
-		if selected_tile_coord != Vector2i(-1, -1):
-			var tile = board_manager.get_tile(selected_tile_coord.x, selected_tile_coord.y)
-			if tile:
-				tile.z_index = 0
-				if not valid:
-					# Snap back
-					tile.position = board_manager.grid_to_pixel(selected_tile_coord.x, selected_tile_coord.y)
-					update_preview(Vector2i(-1, -1), Vector2i(-1, -1)) # Reset board
-		
 		if valid:
-			emit_signal("move_requested", selected_tile_coord, end_grid_pos)
-		
-		current_state = State.IDLE
-		selected_tile_coord = Vector2i(-1, -1)
+			# Visual reset is handled by BoardManager shift or Revert (which calls set_state)
+			var tile = board_manager.get_tile(selected_tile_coord.x, selected_tile_coord.y)
+			if tile: tile.z_index = 0
+			
+			var start_coord = selected_tile_coord
+			
+			# Transition to IDLE BEFORE emitting signal to prevent set_state(LOCKED) from triggering cancel_drag
+			cleanup_highlights()
+			current_state = State.IDLE
+			selected_tile_coord = Vector2i(-1, -1)
+			
+			emit_signal("move_requested", start_coord, end_grid_pos)
+			
+		else:
+			cancel_drag()
+			current_state = State.IDLE
+
+func cancel_drag():
+	cleanup_highlights()
+	if selected_tile_coord != Vector2i(-1, -1):
+		var tile = board_manager.get_tile(selected_tile_coord.x, selected_tile_coord.y)
+		if tile:
+			tile.z_index = 0
+			# Snap back
+			tile.position = board_manager.grid_to_pixel(selected_tile_coord.x, selected_tile_coord.y)
+	
+	update_preview(Vector2i(-1, -1), Vector2i(-1, -1)) # Reset board
+	selected_tile_coord = Vector2i(-1, -1)
 
 # Visual Helpers
 func create_highlights(grid_pos: Vector2i):

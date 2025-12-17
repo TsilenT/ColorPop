@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://buq3l18x0i6x"]
+[gd_scene load_steps=15 format=3 uid="uid://buq3l18x0i6x"]
 
 [ext_resource type="Script" path="res://Game.gd" id="1_v43r7"]
 [ext_resource type="Texture2D" uid="uid://un46hps77icr" path="res://assets/icon_shop.svg" id="2_shop"]
@@ -37,8 +37,6 @@ corner_radius_top_right = 12
 corner_radius_bottom_right = 12
 corner_radius_bottom_left = 12
 
-corner_radius_bottom_left = 12
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_SpellDock"]
 content_margin_left = 16.0
 content_margin_top = 8.0
@@ -62,7 +60,6 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ManaBar_Fill"]
 bg_color = Color(0.4, 0.6, 1, 1)
 corner_radius_top_left = 4
@@ -70,22 +67,21 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxLine" id="StyleBoxLine_Divider"]
+color = Color(0.4, 0.2, 0.6, 0.5)
+thickness = 2
+vertical = true
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_Button"]
 bg_color = Color(0.2, 0.2, 0.25, 1)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.8, 0.8, 0.8, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxLine" id="StyleBoxLine_Divider"]
-color = Color(0.4, 0.2, 0.6, 0.5)
-thickness = 2
-vertical = true
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_v43r7")
@@ -273,16 +269,10 @@ text = "PLAY AGAIN"
 
 [node name="SpellDock" type="PanelContainer" parent="HUD/UIContainer"]
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -300.0
-offset_top = -80.0
-offset_right = 300.0
-offset_bottom = -20.0
-grow_horizontal = 2
+offset_left = 45.0
+offset_top = 655.0
+offset_right = 645.0
+offset_bottom = 715.0
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_SpellDock")
 
@@ -319,11 +309,11 @@ theme_override_styles/separator = SubResource("StyleBoxLine_Divider")
 custom_minimum_size = Vector2(160, 40)
 layout_mode = 2
 size_flags_vertical = 4
-theme_override_styles/normal = SubResource("StyleBoxFlat_Button")
+theme_override_styles/focus = SubResource("StyleBoxFlat_Button")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_Button")
 theme_override_styles/hover = SubResource("StyleBoxFlat_Button")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_Button")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_Button")
-theme_override_styles/focus = SubResource("StyleBoxFlat_Button")
+theme_override_styles/normal = SubResource("StyleBoxFlat_Button")
 text = "Catalyst (50)"
 
 [node name="HarvestButton" type="Button" parent="HUD/UIContainer/SpellDock/HBox"]
@@ -331,9 +321,9 @@ visible = false
 custom_minimum_size = Vector2(160, 40)
 layout_mode = 2
 size_flags_vertical = 4
-theme_override_styles/normal = SubResource("StyleBoxFlat_Button")
+theme_override_styles/focus = SubResource("StyleBoxFlat_Button")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_Button")
 theme_override_styles/hover = SubResource("StyleBoxFlat_Button")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_Button")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_Button")
-theme_override_styles/focus = SubResource("StyleBoxFlat_Button")
+theme_override_styles/normal = SubResource("StyleBoxFlat_Button")
 text = "Harvest (50)"

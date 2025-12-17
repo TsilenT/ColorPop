@@ -218,3 +218,7 @@ func play_one_shot_tone(freq: float, duration: float, volume: float = 0.5, wave_
 	
 	await get_tree().create_timer(duration + 0.1).timeout
 	temp_player.queue_free()
+
+func play_ui_click():
+	# Simple blip
+	play_one_shot_tone(600, 0.05, 0.5, "triangle")

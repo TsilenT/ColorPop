@@ -29,7 +29,8 @@ var gold_upgrades = [
 
 var diamond_upgrades = [
 	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlock Row Clear Spell", "max": 1, "currency": "diamonds"},
-	{"id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds"}
+	{"id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds"},
+	{"id": "super_diamond", "name": "Super Diamond", "base_cost": 10, "desc": "1% Chance/Lvl", "currency": "diamonds", "max": 20}
 ]
 
 func _ready():
