@@ -28,9 +28,10 @@ var gold_upgrades = [
 ]
 
 var diamond_upgrades = [
+	{"id": "super_diamond", "name": "Super Diamond", "base_cost": 10, "desc": "1% Chance/Lvl", "currency": "diamonds", "max": 20},
 	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlock Row Clear Spell", "max": 1, "currency": "diamonds"},
-	{"id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds"},
-	{"id": "super_diamond", "name": "Super Diamond", "base_cost": 10, "desc": "1% Chance/Lvl", "currency": "diamonds", "max": 20}
+	{"id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds"}
+	
 ]
 
 func _ready():
@@ -126,9 +127,7 @@ func show_feedback(text: String, color: Color):
 		feedback_label.visible = true
 		feedback_label.move_to_front() # Ensure it's the last child to draw on top
 		
-		# Debug print
-		print("Showing feedback: ", text)
-		
+
 		var tween = create_tween()
 		feedback_label.set_meta("tween", tween)
 		# Hold for 1.0s, then fade out

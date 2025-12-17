@@ -34,8 +34,7 @@ func randomize_tile_scores():
 		Tile.Type.BLACK: get_black_tile_score() # Bad tile
 	}
 	
-	print("Level %d Tile Scores: %s" % [current_level, tile_scores])
-	
+
 	discovered_types = {}
 
 var discovered_types: Dictionary = {}

@@ -239,18 +239,14 @@ func activate_spell_mode(mode: String = "catalyst"):
 	if mana >= cost:
 		input_handler.set_spell_mode(mode)
 		if mode == "catalyst":
-			print("Select a BLACK tile to transform!")
 			add_log("Select a BLACK tile!")
 		elif mode == "harvest":
-			print("Select Row to Harvest!")
 			add_log("Select Row to Harvest!")
 		update_ui() # Update visuals for active state
 #endregion
 
 #region Core Mechanics (Delegated)
 func attempt_move(start: Vector2i, end: Vector2i):
-	print("Move: ", start, " -> ", end)
-	
 	input_locked = true
 	input_handler.set_state(InputHandler.State.LOCKED)
 	
@@ -617,7 +613,6 @@ func check_game_over():
 		input_handler.set_state(InputHandler.State.LOCKED)
 
 func update_ui():
-	print("UI UPDATE: Score: %s | Turns: %s | Mult: %s | Mana: %s" % [score, turns, multiplier, mana])
 	if level_label and level_manager: level_label.text = "Level: %d" % level_manager.current_level
 	if score_text and level_manager:
 		score_text.text = "%d / %d" % [int(score), level_manager.get_current_target()]

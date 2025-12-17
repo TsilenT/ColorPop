@@ -96,8 +96,7 @@ func play_match(count: int, type = null):
 	# Match sound: Pitch scales with count
 	var base = 400 + (count * 100)
 	
-	print("SoundManager Match: Count=%d Type=%s" % [count, type])
-	
+
 	# Tile.Type enum mapping: RED=0, YELLOW=1, GREEN=2, BLUE=3, BLACK=4, PURPLE=5, ORANGE=6
 	var TYPE_GREEN = 2
 	var TYPE_BLUE = 3
