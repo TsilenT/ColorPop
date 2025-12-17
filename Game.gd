@@ -597,6 +597,9 @@ func check_game_over():
 		ui_container.add_child(complete_scn)
 		complete_scn.setup(rewards, score, turns_left, sound_manager)
 		
+		# Lock Board Input
+		input_handler.set_state(InputHandler.State.LOCKED)
+		
 		complete_scn.continued.connect(func():
 			level_manager.advance_level()
 			complete_scn.queue_free()

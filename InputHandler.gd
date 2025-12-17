@@ -33,7 +33,7 @@ func set_state(state: State):
 		cancel_drag()
 		
 	current_state = state
-	if state == State.IDLE:
+	if state == State.IDLE or state == State.LOCKED:
 		cleanup_highlights()
 		selected_tile_coord = Vector2i(-1, -1)
 		

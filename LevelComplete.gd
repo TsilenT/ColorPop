@@ -104,9 +104,13 @@ func _ready():
 var _continued_pressed = false
 
 func _input(event):
-	if _continued_pressed: return
+	if _continued_pressed:
+		get_viewport().set_input_as_handled()
+		return
 	
 	if (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+		get_viewport().set_input_as_handled()
+		
 		if not animation_finished:
 			skip_animation()
 		else:

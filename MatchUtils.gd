@@ -48,47 +48,81 @@ static func get_match_groups(tiles: Array[Node2D], board: Array[Array], rows: in
 	# A segment is a list of connected tiles that are compatible.
 	var segments: Array[Array] = []
 	
-	# Horizontal segments
+	# Helper for scanning lines (Row or Col) with color-aware segmentation
+	# Determines segments where "A-Diamond-B" (A!=B) splits into [A, D] and [D, B].
+	var scan_line = func(line_tiles: Array):
+		var current_seg = []
+		var seg_type = -1 # -1 means undetermined (all diamonds so far)
+		
+		for t in line_tiles:
+			# Only consider tiles involved in the match (passed in 'tiles')
+			if not t or not (t in tiles):
+				if current_seg.size() >= 3: segments.append(current_seg)
+				current_seg = []
+				seg_type = -1
+				continue
+				
+			if current_seg.is_empty():
+				current_seg.append(t)
+				if t.tile_type != Tile.Type.DIAMOND:
+					seg_type = t.tile_type
+				else:
+					seg_type = -1
+			else:
+				var last = current_seg[-1]
+				# 1. Fast Check: Are they locally compatible?
+				if not are_compatible_2(last, t):
+					# Incompatible direct neighbors (e.g. Red vs Blue) -> Hard Break
+					if current_seg.size() >= 3: segments.append(current_seg)
+					current_seg = [t]
+					if t.tile_type != Tile.Type.DIAMOND:
+						seg_type = t.tile_type
+					else:
+						seg_type = -1
+				else:
+					# 2. Deep Check: Does 't' conflict with segment color?
+					var conflict = false
+					if t.tile_type != Tile.Type.DIAMOND:
+						if seg_type != -1 and seg_type != t.tile_type:
+							conflict = true
+					
+					if conflict:
+						# SPLIT! Overlapping Wildcard Logic.
+						# e.g. [Green, Diamond] + Blue -> Commit [Green, Diamond], Start [Diamond, Blue]
+						if current_seg.size() >= 3: segments.append(current_seg)
+						
+						# Backtrack: Collect trailing diamonds for the new segment
+						var next_seg = []
+						for k in range(current_seg.size() - 1, -1, -1):
+							if current_seg[k].tile_type == Tile.Type.DIAMOND:
+								next_seg.push_front(current_seg[k])
+							else:
+								break
+						
+						next_seg.append(t)
+						current_seg = next_seg
+						seg_type = t.tile_type # New type is definitely t
+					else:
+						# Compatible! Append.
+						current_seg.append(t)
+						# Update seg_type if it was undetermined
+						if seg_type == -1 and t.tile_type != Tile.Type.DIAMOND:
+							seg_type = t.tile_type
+		
+		# End of line commit
+		if current_seg.size() >= 3: segments.append(current_seg)
+
+	# Run scan for Rows
 	for r in range(rows):
-		var current_seg = []
-		for c in range(cols):
-			var t = board[r][c]
-			if not t or not (t in tiles):
-				if current_seg.size() >= 3: segments.append(current_seg)
-				current_seg = []
-				continue
-			
-			if current_seg.is_empty():
-				current_seg.append(t)
-			else:
-				var last = current_seg[-1]
-				if are_compatible_2(last, t):
-					current_seg.append(t)
-				else:
-					if current_seg.size() >= 3: segments.append(current_seg)
-					current_seg = [t]
-		if current_seg.size() >= 3: segments.append(current_seg)
-	
-	# Vertical segments
+		var line = []
+		for c in range(cols): line.append(board[r][c])
+		scan_line.call(line)
+		
+	# Run scan for Cols
 	for c in range(cols):
-		var current_seg = []
-		for r in range(rows):
-			var t = board[r][c]
-			if not t or not (t in tiles):
-				if current_seg.size() >= 3: segments.append(current_seg)
-				current_seg = []
-				continue
-			
-			if current_seg.is_empty():
-				current_seg.append(t)
-			else:
-				var last = current_seg[-1]
-				if are_compatible_2(last, t):
-					current_seg.append(t)
-				else:
-					if current_seg.size() >= 3: segments.append(current_seg)
-					current_seg = [t]
-		if current_seg.size() >= 3: segments.append(current_seg)
+		var line = []
+		for r in range(rows): line.append(board[r][c])
+		scan_line.call(line)
 
 	# Step 2: Merge intersecting segments ONLY if they are color-compatible.
 	# We can represent segments as "Proto-Groups".
