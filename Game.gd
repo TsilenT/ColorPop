@@ -481,6 +481,10 @@ func try_cast_harvest(row_idx: int):
 	var cost = 50 # Rebalanced
 	if mana >= cost:
 		mana -= cost
+		
+		# Immediately lock input to clear highlight and prevent interaction
+		input_handler.set_state(InputHandler.State.LOCKED)
+		
 		if sound_manager: sound_manager.play_cast()
 		
 		add_log("Harvesting Row %d!" % row_idx)
