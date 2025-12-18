@@ -22,7 +22,7 @@ func setup(container: Node2D, t_scene: PackedScene, lm: LevelManager, offset: Ve
 	level_manager = lm
 	GRID_OFFSET = offset
 	
-	initialize_board()
+	# initialize_board() <- Called by Game.start_next_level() explicitly
 
 func initialize_board():
 	for child in board_container.get_children():
@@ -38,8 +38,16 @@ func initialize_board():
 			while (c >= 2 and board[r][c - 1].tile_type == type and board[r][c - 2].tile_type == type) or \
 				  (r >= 2 and board[r - 1][c].tile_type == type and board[r - 2][c].tile_type == type):
 				type = get_weighted_random_type()
+			
+			# Spawn and animate with staggered column heights
 			spawn_tile(r, c, type)
-
+			var t = board[r][c]
+			if t:
+				# Stagger: Left column starts low (-400), Right column starts high (-400 - (7 * 100) = -1100)
+				var stagger_offset = 400 + (c * 100)
+				t.position.y -= stagger_offset
+				animate_tile(t, r, c)
+			
 func spawn_tile(r: int, c: int, type_override = null):
 	var tile = tile_scene.instantiate()
 	

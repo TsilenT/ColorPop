@@ -1,8 +1,17 @@
 extends Control
 
-func setup(text: String, color: Color, scale_factor: float = 1.0):
+func setup(text: String, color: Color, scale_factor: float = 1.0, outline_color: Color = Color.BLACK):
 	$Label.text = text
-	$Label.add_theme_color_override("font_color", color)
+	
+	# Create dynamic label settings for outline
+	var settings = LabelSettings.new()
+	settings.font_color = color
+	settings.outline_size = 4
+	settings.outline_color = outline_color
+	settings.font_size = 24 # Make it bold/large
+	
+	$Label.label_settings = settings
+
 	
 	scale = Vector2(scale_factor, scale_factor)
 	

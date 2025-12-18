@@ -1,20 +1,24 @@
 [gd_scene load_steps=3 format=3 uid="uid://matchparticles123"]
 
 [ext_resource type="Script" path="res://MatchParticles.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://diamondicon" path="res://assets/tile_diamond.svg" id="2_tex"]
 
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_1"]
-particle_flag_disable_z = true
+[node name="MatchParticles" type="CPUParticles2D"]
+z_index = 20
+emitting = false
+amount = 12
+lifetime = 0.6
+one_shot = true
+explosiveness = 0.9
+randomness = 0.5
+texture = ExtResource("2_tex")
 spread = 180.0
-initial_velocity_min = 100.0
-initial_velocity_max = 200.0
-gravity = Vector3(0, 98, 0)
-scale_min = 5.0
-scale_max = 10.0
+gravity = Vector2(0, 150)
+initial_velocity_min = 150.0
+initial_velocity_max = 250.0
+angular_velocity_min = -100.0
+angular_velocity_max = 100.0
+scale_amount_min = 0.3
+scale_amount_max = 0.5
 color = Color(1, 1, 1, 1)
-
-[node name="MatchParticles" type="GPUParticles2D"]
-amount = 16
-process_material = SubResource("ParticleProcessMaterial_1")
-lifetime = 0.5
-explosiveness = 1.0
 script = ExtResource("1_script")

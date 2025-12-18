@@ -57,14 +57,14 @@ var shake_strength: float = 0.0
 var shake_decay: float = 5.0
 
 const TILE_COLORS = {
-	Tile.Type.RED: Color(0.9, 0.3, 0.3),
-	Tile.Type.YELLOW: Color(0.95, 0.8, 0.1),
-	Tile.Type.GREEN: Color(0.2, 0.9, 0.4),
-	Tile.Type.BLUE: Color(0.3, 0.5, 1.0),
-	Tile.Type.BLACK: Color(0.2, 0.2, 0.2),
-	Tile.Type.PURPLE: Color(0.7, 0.3, 0.9),
-	Tile.Type.ORANGE: Color(1.0, 0.6, 0.0),
-	Tile.Type.DIAMOND: Color(0.8, 0.9, 1.0)
+	Tile.Type.RED: Color(1.0, 0.4, 0.4),
+	Tile.Type.YELLOW: Color(1.0, 0.9, 0.2),
+	Tile.Type.GREEN: Color(0.4, 1.0, 0.5),
+	Tile.Type.BLUE: Color(0.4, 0.7, 1.0),
+	Tile.Type.BLACK: Color(0.9, 0.9, 0.9), # White text for black tiles
+	Tile.Type.PURPLE: Color(0.8, 0.5, 1.0),
+	Tile.Type.ORANGE: Color(1.0, 0.7, 0.2),
+	Tile.Type.DIAMOND: Color(0.8, 0.95, 1.0)
 }
 #endregion
 
@@ -86,13 +86,13 @@ func setup_camera():
 func shake_screen(intensity: float):
 	shake_strength = max(shake_strength, intensity)
 
-func spawn_floating_text(pos: Vector2, text: String, color: Color, scale: float = 1.0):
+func spawn_floating_text(pos: Vector2, text: String, color: Color, scale: float = 1.0, outline_color: Color = Color.BLACK):
 	var ft = preload("res://FloatingText.tscn").instantiate()
 	get_parent().add_child(ft)
 	# Add slight random jitter to prevent perfect stacking
 	var jitter = Vector2(randf_range(-15, 15), randf_range(-15, 15))
 	ft.global_position = pos + jitter
-	ft.setup(text, color, scale)
+	ft.setup(text, color, scale, outline_color)
 
 
 func _ready():
@@ -101,7 +101,13 @@ func _ready():
 	level_manager.setup_run()
 	
 	setup_managers()
-	setup_camera()
+	setup_camera() # Keep valid ones, ensure no duplicates above
+	
+	# Handle Resizing First (Sets Grid Offset)
+	get_tree().root.size_changed.connect(resize_game)
+	resize_game()
+	
+	setup_background_grid()
 	
 	start_next_level()
 	
@@ -110,11 +116,7 @@ func _ready():
 	
 	setup_ui_connections()
 	
-	setup_background_grid()
-	
-	# Handle Resizing
-	get_tree().root.size_changed.connect(resize_game)
-	resize_game()
+	update_ui() # Initial UI Set
 	
 	update_ui() # Initial UI Set
 	setup_legend_ui()
@@ -190,11 +192,14 @@ func resize_game():
 	# Propagate to Board Manager
 	if board_manager:
 		board_manager.GRID_OFFSET = GRID_OFFSET
-		# Reposition existing tiles
-		for r in range(ROWS):
-			for c in range(COLS):
-				var tile = board_manager.get_tile(r, c)
-				if tile: tile.position = board_manager.grid_to_pixel(r, c)
+		
+		# Only try to reposition if board is initialized
+		if not board_manager.board.is_empty() and board_manager.board.size() == ROWS:
+			# Reposition existing tiles
+			for r in range(ROWS):
+				for c in range(COLS):
+					var tile = board_manager.get_tile(r, c)
+					if tile: tile.position = board_manager.grid_to_pixel(r, c)
 	
 	update_dock_layout()
 
@@ -423,8 +428,14 @@ func process_match_group(group: Array):
 	# Apply Diamond Multiplier to TOTAL match score
 	match_score *= diamond_mult
 		
-	# Side Effects (Green/Blue)
+	# Side Effects (Green/Blue/Black)
 	if has_concrete_type:
+		if type == Tile.Type.BLACK:
+			# Black tiles are negative points or just penalties? 
+			# Assuming they have a score value defined in LevelManager (usually negative)
+			# Show the score text specifically for Black
+			spawn_floating_text(center_pos, "%d" % int(match_score), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
+			
 		if type == Tile.Type.GREEN:
 			green_matched_this_turn = true
 			var gain = 0.1 * match_count * efficiency * diamond_mult
@@ -444,7 +455,7 @@ func process_match_group(group: Array):
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
 			add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
-			spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE)
+			spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE, 1.0, Color.WHITE)
 
 	score = max(0, score + match_score)
 	
@@ -461,18 +472,19 @@ func process_match_group(group: Array):
 		add_child(parts)
 		parts.global_position = center_pos
 		var p_color = TILE_COLORS.get(type, Color.WHITE)
-		if parts.process_material is ParticleProcessMaterial:
-			parts.process_material.color = p_color
-		elif parts.has_method("set_color"): # Fallback if using script
-			parts.set_color(p_color)
-		# CPUParticles2D fallback manually
+		
 		if parts is CPUParticles2D:
 			parts.color = p_color
+		elif parts is GPUParticles2D and parts.process_material is ParticleProcessMaterial:
+			parts.process_material.color = p_color
 			
-	# FX: Main Score Text
-	if match_score > 0:
+	# FX: Main Score Text (Skip for Black since we handled it above specially, OR ensure we don't double dip)
+	if match_score != 0 and type != Tile.Type.BLACK: # Black uses special negative formatting above
 		var txt_color = TILE_COLORS.get(type, Color.WHITE)
-		spawn_floating_text(center_pos, "+%d" % int(match_score), txt_color, 1.2)
+		var display_score = match_score
+		var prefix = "+"
+		if match_score < 0: prefix = "" # formatted automatically? %d with negative shows -
+		spawn_floating_text(center_pos, "%+d" % int(match_score), txt_color, 1.2)
 	
 	if match_score != 0:
 		var log_msg = "Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)]
