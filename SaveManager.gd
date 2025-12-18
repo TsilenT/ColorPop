@@ -15,6 +15,7 @@ var data = {
 		"mult_purple": 0,
 		"mult_orange": 0,
 		"harvest": 0,
+		"columns": 0,
 		"cinderella": 0
 	},
 	"settings": {

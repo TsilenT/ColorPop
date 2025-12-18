@@ -135,7 +135,7 @@ offset_top = 10.0
 offset_right = -20.0
 offset_bottom = 74.0
 grow_horizontal = 2
-theme_override_constants/separation = 40
+theme_override_constants/separation = 20
 
 [node name="Spacer" type="Control" parent="HUD/UIContainer/Header"]
 layout_mode = 2

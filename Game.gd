@@ -1,7 +1,7 @@
 class_name Game
 extends Node2D
 
-const COLS = 8
+var COLS = 8
 const ROWS = 8
 const TILE_SIZE = 70
 var GRID_OFFSET = Vector2(100, 100)
@@ -147,6 +147,12 @@ func setup_managers():
 	# Board
 	board_manager = BoardManager.new()
 	add_child(board_manager)
+	
+	# Update COLS based on upgrades
+	if level_manager and level_manager.save_manager:
+		var extra = level_manager.save_manager.get_upgrade_level("columns")
+		COLS = 8 + extra
+		
 	board_manager.setup(board_container, TileScene, level_manager, GRID_OFFSET)
 	
 	# Input
@@ -183,6 +189,7 @@ func resize_game():
 	# Update Board Visual
 	var board_frame = $BoardFrame
 	if board_frame:
+		board_frame.size.x = (COLS * TILE_SIZE) + 40 # 20 padding each side
 		board_frame.position.x = 45.0 + margin_x
 		
 	# Update Logic Offset
@@ -197,7 +204,9 @@ func resize_game():
 		if not board_manager.board.is_empty() and board_manager.board.size() == ROWS:
 			# Reposition existing tiles
 			for r in range(ROWS):
-				for c in range(COLS):
+				# Use actual array size to prevent crash if COLS increased but board not resized yet
+				var row_size = board_manager.board[r].size()
+				for c in range(row_size):
 					var tile = board_manager.get_tile(r, c)
 					if tile: tile.position = board_manager.grid_to_pixel(r, c)
 	
@@ -232,6 +241,16 @@ func start_next_level():
 	score = 0
 	multiplier = 1.0
 	mana = 0
+	
+	# Check for grid expansion
+	if level_manager and level_manager.save_manager:
+		var extra = level_manager.save_manager.get_upgrade_level("columns")
+		COLS = 8 + extra
+		if board_manager:
+			board_manager.COLS = COLS
+			
+	setup_background_grid()
+	resize_game()
 	
 	if log_label:
 		log_label.text = "Welcome to ColorPop!"
@@ -566,17 +585,31 @@ func try_cast_harvest(row_idx: int):
 		# Collect and Group tiles by type
 		var tiles_to_remove = []
 		var type_groups = {}
+		var diamonds = []
 		
+		# First Pass: Collect Tiles and Separate Diamonds
 		for c in range(COLS):
 			var t = board_manager.get_tile(row_idx, c)
 			if t:
-				# Exclude Black tiles from scoring groups
-				if t.tile_type != Tile.Type.BLACK:
+				if t.tile_type == Tile.Type.DIAMOND:
+					diamonds.append(t)
+				elif t.tile_type != Tile.Type.BLACK:
 					if not type_groups.has(t.tile_type):
 						type_groups[t.tile_type] = []
 					type_groups[t.tile_type].append(t)
 				
 				tiles_to_remove.append(t)
+		
+		# Second Pass: Distribute Diamonds to ALL groups (Wildcard behavior)
+		if type_groups.is_empty():
+			# Special Case: Only Diamonds (or Diamonds + Black)
+			if not diamonds.is_empty():
+				type_groups[Tile.Type.DIAMOND] = diamonds
+		else:
+			# Add every diamond to every existing color group
+			for type in type_groups:
+				for d in diamonds:
+					type_groups[type].append(d)
 		
 		# Process each group as a match
 		for type in type_groups:
@@ -613,7 +646,22 @@ func get_spell_cost() -> int:
 	return max(10, base)
 #endregion
 
-#region Helpers
+# Helpers
+func format_currency(amount: int) -> String:
+	if amount >= 10000:
+		var k_val = amount / 1000.0
+		# Format to 1 decimal place, e.g. 10.5k. If it's 10.0k, maybe just 10k? 
+		# Let's simple use 0 decimal places if > 100k? 
+		# User example: "91k". 
+		# Let's do nearest integer k if > 10000. 
+		# actually "91.3k" fit? 
+		# User said "e.g. 91k". Let's try 1 decimal place if < 100k, 0 if > 100k.
+		if amount < 100000:
+			return "%.1fk" % k_val
+		else:
+			return "%dk" % int(k_val)
+	return str(amount)
+
 func add_log(msg: String):
 	if log_label:
 		log_label.text += "\n" + msg
@@ -621,6 +669,10 @@ func add_log(msg: String):
 func setup_background_grid():
 	var grid_bg = $BoardFrame/GridBackground
 	if not grid_bg: return
+	
+	# Update columns to match dynamic grid
+	grid_bg.columns = COLS
+	
 	for child in grid_bg.get_children():
 		child.queue_free()
 	for i in range(ROWS * COLS):
@@ -721,8 +773,10 @@ func update_ui():
 	if score_bar: score_bar.value = score
 	if turns_label: turns_label.text = "Turns: %d" % turns
 	if multi_label: multi_label.text = "Multiplier: %.2fx" % multiplier
-	if gold_label and level_manager: gold_label.text = str(level_manager.save_manager.get_gold())
-	if diam_label and level_manager: diam_label.text = str(level_manager.save_manager.get_diamonds())
+	if gold_label and level_manager:
+		gold_label.text = format_currency(level_manager.save_manager.get_gold())
+	if diam_label and level_manager:
+		diam_label.text = format_currency(level_manager.save_manager.get_diamonds())
 	
 	var max_mana = get_max_mana()
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]

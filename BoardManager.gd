@@ -6,7 +6,7 @@ signal match_found(matches)
 signal turn_finished
 
 # Constants (Shared with Game, or passed in)
-const COLS = 8
+var COLS = 8
 const ROWS = 8
 const TILE_SIZE = 70
 var GRID_OFFSET = Vector2(100, 100)
@@ -21,6 +21,9 @@ func setup(container: Node2D, t_scene: PackedScene, lm: LevelManager, offset: Ve
 	tile_scene = t_scene
 	level_manager = lm
 	GRID_OFFSET = offset
+	if level_manager:
+		var extra = level_manager.save_manager.get_upgrade_level("columns")
+		COLS = 8 + extra
 	
 	# initialize_board() <- Called by Game.start_next_level() explicitly
 

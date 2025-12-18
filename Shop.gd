@@ -30,7 +30,8 @@ var gold_upgrades = [
 var diamond_upgrades = [
 	{"id": "super_diamond", "name": "Gem Fortune", "base_cost": 10, "desc": "+1% Super Diamond Chance per Tile in a Super Match (4 or more)", "currency": "diamonds", "max": 20},
 	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlocks Harvest Spell, a powerful spell that allows you to safely collect all tiles in a row", "max": 1, "currency": "diamonds"},
-	{"id": "cinderella", "name": "Cinderella", "base_cost": 250, "desc": "+25% Green Tile Spawn Rate", "max": 4, "currency": "diamonds"}
+	{"id": "cinderella", "name": "Cinderella", "base_cost": 250, "desc": "+25% Green Tile Spawn Rate", "max": 4, "currency": "diamonds"},
+	{"id": "columns", "name": "Grid Expansion", "base_cost": 2000, "desc": "Unlocks a new column on the game board!", "max": 2, "currency": "diamonds"}
 	
 ]
 
