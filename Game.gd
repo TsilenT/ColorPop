@@ -8,6 +8,7 @@ var GRID_OFFSET = Vector2(100, 100)
 
 #region Scene References
 @export var TileScene: PackedScene = preload("res://Tile.tscn")
+@export var MatchParticlesScene: PackedScene = preload("res://MatchParticles.tscn")
 @onready var board_container: Node2D = $BoardContainer
 @export var SettingsScene: PackedScene = preload("res://Settings.tscn")
 
@@ -49,7 +50,49 @@ var input_locked: bool = false # Processing flag
 # Legend UI
 var legend_labels: Dictionary = {}
 var legend_box: GridContainer
+
+# Shake constants and vars
+var game_camera: Camera2D
+var shake_strength: float = 0.0
+var shake_decay: float = 5.0
+
+const TILE_COLORS = {
+	Tile.Type.RED: Color(0.9, 0.3, 0.3),
+	Tile.Type.YELLOW: Color(0.95, 0.8, 0.1),
+	Tile.Type.GREEN: Color(0.2, 0.9, 0.4),
+	Tile.Type.BLUE: Color(0.3, 0.5, 1.0),
+	Tile.Type.BLACK: Color(0.2, 0.2, 0.2),
+	Tile.Type.PURPLE: Color(0.7, 0.3, 0.9),
+	Tile.Type.ORANGE: Color(1.0, 0.6, 0.0),
+	Tile.Type.DIAMOND: Color(0.8, 0.9, 1.0)
+}
 #endregion
+
+
+func _process(delta):
+	if shake_strength > 0:
+		shake_strength = lerp(shake_strength, 0.0, shake_decay * delta)
+		if game_camera:
+			game_camera.offset = Vector2(
+				randf_range(-shake_strength, shake_strength),
+				randf_range(-shake_strength, shake_strength)
+			)
+			
+func setup_camera():
+	game_camera = Camera2D.new()
+	game_camera.anchor_mode = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
+	add_child(game_camera)
+	
+func shake_screen(intensity: float):
+	shake_strength = max(shake_strength, intensity)
+
+func spawn_floating_text(pos: Vector2, text: String, color: Color, scale: float = 1.0):
+	var ft = preload("res://FloatingText.tscn").instantiate()
+	get_parent().add_child(ft)
+	# Add slight random jitter to prevent perfect stacking
+	var jitter = Vector2(randf_range(-15, 15), randf_range(-15, 15))
+	ft.global_position = pos + jitter
+	ft.setup(text, color, scale)
 
 
 func _ready():
@@ -58,6 +101,7 @@ func _ready():
 	level_manager.setup_run()
 	
 	setup_managers()
+	setup_camera()
 	
 	start_next_level()
 	
@@ -327,6 +371,12 @@ func process_match_group(group: Array):
 	var type_name = Tile.Type.keys()[type]
 	var efficiency = max(1.0, (1.25) ** (match_count - 3))
 	
+	# Calculate center position for effects
+	var center_pos = Vector2.ZERO
+	if not group.is_empty():
+		for t in group: center_pos += t.global_position
+		center_pos /= group.size()
+	
 	# Discovery
 	if has_concrete_type and level_manager:
 		level_manager.mark_discovered(type)
@@ -361,17 +411,7 @@ func process_match_group(group: Array):
 		if is_diamond:
 			if level_manager and level_manager.save_manager:
 				level_manager.save_manager.add_diamonds(1)
-				
-				# Spawn Floating Text
-				var ft = preload("res://FloatingText.tscn").instantiate()
-				get_parent().add_child(ft) # Add to scene root or HUD
-				# Position at tile (need visual position)
-				# Add jitter so multiple rewards don't stack perfectly
-				var jitter = Vector2(randf_range(-20, 20), randf_range(-20, 20))
-				ft.position = t.global_position + jitter
-				ft.setup("+1 Diamond!", Color(0, 1, 1)) # Cyan
-				
-				# Log handled in summary
+				spawn_floating_text(t.global_position, "+1 Diamond!", Color(0, 1, 1), 0.8)
 				
 		if not has_concrete_type:
 			tile_pts = 300
@@ -387,15 +427,15 @@ func process_match_group(group: Array):
 	if has_concrete_type:
 		if type == Tile.Type.GREEN:
 			green_matched_this_turn = true
-			var gain = 0.1 * match_count * efficiency * diamond_mult # Diamonds should buff side effects too? Let's say yes for score, but maybe not side effects? User said "result". Assuming score.
-			# Actually, user said "total match group result". I will only apply to Score for now to avoid breaking balance of Mana/Mult too hard.
+			var gain = 0.1 * match_count * efficiency * diamond_mult
 			
 			if level_manager:
 				var up_level = level_manager.save_manager.get_upgrade_level("mult_green")
-				gain = (gain / diamond_mult) * (1.0 + (up_level * 0.1)) # Re-calc without diamond mult if I strictly followed score only
+				gain = (gain / diamond_mult) * (1.0 + (up_level * 0.1))
 			
 			multiplier += gain
 			add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
+			spawn_floating_text(center_pos + Vector2(0, -20), "+%.2fx Mult" % gain, Color.GREEN)
 		
 		if type == Tile.Type.BLUE:
 			var gain = match_count * 5 * efficiency
@@ -404,8 +444,35 @@ func process_match_group(group: Array):
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
 			add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
+			spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE)
 
 	score = max(0, score + match_score)
+	
+	# FX: Screen Shake
+	if match_count >= 4:
+		var shake = 0.0
+		if match_count == 4: shake = 5.0
+		else: shake = 5.0 + ((match_count - 4) * 4.0)
+		shake_screen(min(shake, 35.0))
+		
+	# FX: Particles
+	if MatchParticlesScene:
+		var parts = MatchParticlesScene.instantiate()
+		add_child(parts)
+		parts.global_position = center_pos
+		var p_color = TILE_COLORS.get(type, Color.WHITE)
+		if parts.process_material is ParticleProcessMaterial:
+			parts.process_material.color = p_color
+		elif parts.has_method("set_color"): # Fallback if using script
+			parts.set_color(p_color)
+		# CPUParticles2D fallback manually
+		if parts is CPUParticles2D:
+			parts.color = p_color
+			
+	# FX: Main Score Text
+	if match_score > 0:
+		var txt_color = TILE_COLORS.get(type, Color.WHITE)
+		spawn_floating_text(center_pos, "+%d" % int(match_score), txt_color, 1.2)
 	
 	if match_score != 0:
 		var log_msg = "Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)]
@@ -432,6 +499,7 @@ func process_match_group(group: Array):
 				spawned = true
 				if sound_manager: sound_manager.play_cast()
 				add_log("SUPER DIAMOND SPAWNED!")
+				spawn_floating_text(tile.global_position, "Super Diamond!", Color(0, 1, 1), 1.5)
 		
 		if not spawned:
 			if is_instance_valid(tile) and not tile.is_queued_for_deletion():

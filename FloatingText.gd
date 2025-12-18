@@ -1,8 +1,10 @@
 extends Control
 
-func setup(text: String, color: Color):
+func setup(text: String, color: Color, scale_factor: float = 1.0):
 	$Label.text = text
 	$Label.add_theme_color_override("font_color", color)
+	
+	scale = Vector2(scale_factor, scale_factor)
 	
 	# Animate up and fade out
 	var tween = create_tween()
