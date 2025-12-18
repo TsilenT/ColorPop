@@ -125,7 +125,7 @@ func setup_ui_connections():
 	if shop_button: shop_button.pressed.connect(open_shop)
 	if settings_button: settings_button.pressed.connect(open_settings)
 	if reset_button:
-		reset_button.pressed.connect(reset_game)
+		reset_button.pressed.connect(restart_full_game)
 		reset_button.visible = false
 
 #region Resize Handling
@@ -607,10 +607,34 @@ func check_game_over():
 		)
 		
 	elif turns <= 0:
-		add_log("Game Over! Out of Turns.")
+		# Game Over Logic
 		if sound_manager: sound_manager.play_error()
-		reset_button.visible = true
 		input_handler.set_state(InputHandler.State.LOCKED)
+		
+		# Update High Score
+		if level_manager and level_manager.save_manager:
+			level_manager.save_manager.update_highest_level(level_manager.current_level)
+		
+		# Show Game Over Screen
+		var game_over_scn = preload("res://GameOver.tscn").instantiate()
+		game_over_scn.name = "GameOver"
+		ui_container.add_child(game_over_scn)
+		
+		var best_lvl = 1
+		if level_manager and level_manager.save_manager:
+			best_lvl = level_manager.save_manager.get_highest_level()
+			
+		game_over_scn.setup(level_manager.current_level, best_lvl, "Out of Turns!")
+		
+		game_over_scn.restart_requested.connect(func():
+			game_over_scn.queue_free()
+			restart_full_game()
+		)
+
+func restart_full_game():
+	if level_manager:
+		level_manager.setup_run() # Reset to Level 1
+	start_next_level()
 
 func update_ui():
 	if level_label and level_manager: level_label.text = "Level: %d" % level_manager.current_level

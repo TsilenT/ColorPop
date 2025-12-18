@@ -22,7 +22,10 @@ var data = {
 		"sfx_volume": 0.5,
 		"music_volume": 0.5
 	},
-	"diamonds": 0
+	"diamonds": 0,
+	"stats": {
+		"highest_level": 1
+	}
 }
 
 func _init():
@@ -57,6 +60,12 @@ func load_game():
 			if "settings" in loaded_data:
 				for k in loaded_data["settings"]:
 					data["settings"][k] = loaded_data["settings"][k]
+					
+			# Merge Stats
+			if "stats" in loaded_data:
+				for k in loaded_data["stats"]:
+					if not "stats" in data: data["stats"] = {}
+					data["stats"][k] = loaded_data["stats"][k]
 
 func get_gold() -> int:
 	return data["gold"]
@@ -104,3 +113,14 @@ func get_setting(key: String, default = null):
 func set_setting(key: String, value):
 	data["settings"][key] = value
 	save_game()
+
+func get_highest_level() -> int:
+	if not "stats" in data: return 1
+	return data["stats"].get("highest_level", 1)
+
+func update_highest_level(level: int):
+	if not "stats" in data: data["stats"] = {"highest_level": 1}
+	var current = data["stats"].get("highest_level", 1)
+	if level > current:
+		data["stats"]["highest_level"] = level
+		save_game()
