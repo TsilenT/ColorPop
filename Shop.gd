@@ -29,10 +29,17 @@ var gold_upgrades = [
 
 var diamond_upgrades = [
 	{"id": "super_diamond", "name": "Gem Fortune", "base_cost": 10, "desc": "+1% Super Diamond Chance per Tile in a Super Match (4 or more)", "currency": "diamonds", "max": 20},
-	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlocks Harvest Spell, a powerful spell that allows you to safely collect all tiles in a row", "max": 1, "currency": "diamonds"},
+	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlocks Harvest Spell: Safely collect all tiles in a row", "max": 1, "currency": "diamonds"},
 	{"id": "cinderella", "name": "Cinderella", "base_cost": 250, "desc": "+25% Green Tile Spawn Rate", "max": 4, "currency": "diamonds"},
-	{"id": "columns", "name": "Grid Expansion", "base_cost": 2000, "desc": "Unlocks a new column on the game board!", "max": 2, "currency": "diamonds"}
+	{"id": "columns", "name": "Grid Expansion", "base_cost": 2000, "desc": "More Columns means more tiles!", "max": 2, "currency": "diamonds"}
 	
+]
+
+const EXCHANGE_ITEMS = [
+	{"id": "exchange_10", "name": "Small Pouch", "base_cost": 10, "desc": "100 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
+	{"id": "exchange_100", "name": "Medium Bag", "base_cost": 100, "desc": "1,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
+	{"id": "exchange_1k", "name": "Large Sack", "base_cost": 1000, "desc": "10,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
+	{"id": "exchange_10k", "name": "Vault", "base_cost": 10000, "desc": "100,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1}
 ]
 
 func _ready():
@@ -57,6 +64,17 @@ func switch_tab(tab: String):
 	current_tab = tab
 	refresh_ui()
 
+func are_all_diamond_upgrades_maxed() -> bool:
+	if not level_manager: return false
+	
+	for up in diamond_upgrades:
+		var current = level_manager.save_manager.get_upgrade_level(up["id"])
+		var max_lvl = up.get("max", -1)
+		if max_lvl != -1 and current < max_lvl:
+			return false
+	return true
+
+
 func refresh_ui():
 	if not level_manager: return
 	
@@ -77,11 +95,18 @@ func refresh_ui():
 		child.queue_free()
 		
 	# Select List
-	var list = gold_upgrades
+	var list = []
 	var currency_amount = level_manager.save_manager.get_gold()
+	
 	if current_tab == "diamonds":
-		list = diamond_upgrades
+		list = diamond_upgrades.duplicate()
 		currency_amount = level_manager.save_manager.get_diamonds()
+		
+		# Check for Maxed Out Shop
+		if are_all_diamond_upgrades_maxed():
+			list.append_array(EXCHANGE_ITEMS)
+	else:
+		list = gold_upgrades.duplicate()
 
 	# Rebuild Grid
 	for up in list:
@@ -102,6 +127,21 @@ var UpgradeCardScene = preload("res://UpgradeCard.tscn")
 
 func _on_buy_pressed(key: String, cost: int):
 	if level_manager:
+		# Handle Exchange Items (Special Case)
+		if key.begins_with("exchange_"):
+			if level_manager.save_manager.spend_diamonds(cost):
+				var gold_gain = cost * 10
+				level_manager.save_manager.add_gold(gold_gain)
+				
+				show_feedback("Converted!", Color.GREEN)
+				if sound_manager: sound_manager.play_match(3)
+				emit_signal("upgrade_purchased", key, cost)
+				refresh_ui()
+			else:
+				show_feedback("Not Enough!", Color.RED)
+				if sound_manager: sound_manager.play_error()
+			return
+
 		var currency = "gold"
 		if current_tab == "diamonds": currency = "diamonds"
 		

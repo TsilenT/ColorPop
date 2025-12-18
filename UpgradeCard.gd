@@ -28,8 +28,12 @@ func setup(data, current_level: int):
 	else:
 		current_cost = base + (current_level * (base * 0.5))
 	
-	lvl_label.text = "Lvl %d" % current_level
-	if max_lvl != -1: lvl_label.text += " / %d" % max_lvl
+	if data.get("hide_level", false):
+		lvl_label.visible = false
+	else:
+		lvl_label.visible = true
+		lvl_label.text = "Lvl %d" % current_level
+		if max_lvl != -1: lvl_label.text += " / %d" % max_lvl
 	
 	buy_button.pressed.connect(_on_buy_pressed)
 	

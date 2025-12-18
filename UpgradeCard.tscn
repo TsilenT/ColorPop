@@ -37,7 +37,7 @@ corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
 [node name="UpgradeCard" type="PanelContainer"]
-custom_minimum_size = Vector2(160, 200)
+custom_minimum_size = Vector2(200, 200)
 theme_override_styles/panel = SubResource("StyleBoxFlat_Card")
 script = ExtResource("1_script")
 
