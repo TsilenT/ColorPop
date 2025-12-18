@@ -66,8 +66,11 @@ func get_weighted_random_type() -> int: # Tile.Type
 	}
 	
 	# Cinderella Upgrade Check
-	if level_manager and level_manager.save_manager.get_upgrade_level("cinderella") > 0:
-		weights[2] = weights[2] * 1.25 # GREEN
+	if level_manager:
+		var cinderella_level = level_manager.save_manager.get_upgrade_level("cinderella")
+		if cinderella_level > 0:
+			var multiplier = 1.0 + (0.25 * cinderella_level)
+			weights[2] = weights[2] * multiplier # GREEN
 		
 	var total_weight = 0.0
 	for w in weights.values():

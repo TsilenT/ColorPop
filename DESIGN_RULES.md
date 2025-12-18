@@ -7,8 +7,8 @@ This document outlines the current logic and constraints of the game as implemen
 - **Limit:** 20 Turns per level.
 - **Level Targets:** $1000 + (Level \times 5000)$.
 - **Rewards:**
-    - **Gold:** 2% of Final Score.
-    - **Diamonds:** $0.5 \times TurnsRemaining \times Level$.
+	- **Gold:** 2% of Final Score.
+	- **Diamonds:** $0.5 \times TurnsRemaining \times Level$.
 
 ## II. Tile Definitions
 ### Standard Scoring Tiles
@@ -62,8 +62,8 @@ $$Gain = Count \times 5 \times Efficiency$$
 - **Upgrades:**
   - **Gold Shop**: Mana Cap, Spell Cost, Color Multipliers.
   - **Diamond Shop**:
-    - **Harvest**: Unlocks Harvest spell.
-    - **Cinderella Strat**: +25% Green Tile Spawn Rate.
+	- **Harvest**: Unlocks Harvest spell.
+	- **Cinderella Strat**: +25% Green Tile Spawn Rate.
 
 ## VI. Systems
 - **Audio**: Procedural 8-bit sound engine (Code-generated).

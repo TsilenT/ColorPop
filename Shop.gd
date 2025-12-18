@@ -17,20 +17,20 @@ var current_tab = "gold"
 
 # Upgrade Definitions
 var gold_upgrades = [
-	{"id": "mana_cap", "name": "Mana Cap", "base_cost": 100, "desc": "+10 Max Mana"},
-	{"id": "spell_cost", "name": "Spell Cost", "base_cost": 150, "desc": "-5 Catalyst Cost", "max": 8},
-	{"id": "mult_red", "name": "Red Mult", "base_cost": 200, "desc": "+10% Red Score"},
-	{"id": "mult_yellow", "name": "Yellow Mult", "base_cost": 200, "desc": "+10% Yellow Score"},
-	{"id": "mult_green", "name": "Green Mult", "base_cost": 200, "desc": "+10% Mult Gain"},
-	{"id": "mult_blue", "name": "Blue Mult", "base_cost": 200, "desc": "+10% Mana Gain"},
-	{"id": "mult_purple", "name": "Purple Mult", "base_cost": 200, "desc": "+10% Purple Score"},
-	{"id": "mult_orange", "name": "Orange Mult", "base_cost": 200, "desc": "+10% Orange Score"},
+	{"id": "mana_cap", "name": "Mana Well", "base_cost": 100, "desc": "+10 Max Mana"},
+	{"id": "spell_cost", "name": "Efficiency", "base_cost": 150, "desc": "-5 Catalyst Cost", "max": 8},
+	{"id": "mult_green", "name": "Green Mastery", "base_cost": 200, "desc": "+10% Multiplier Gain"},
+	{"id": "mult_blue", "name": "Blue Mastery", "base_cost": 200, "desc": "+10% Mana Gain"},
+	{"id": "mult_purple", "name": "Purple Mastery", "base_cost": 200, "desc": "+10% Purple Score"},
+	{"id": "mult_orange", "name": "Orange Mastery", "base_cost": 200, "desc": "+10% Orange Score"},
+	{"id": "mult_red", "name": "Red Mastery", "base_cost": 200, "desc": "+10% Red Score"},
+	{"id": "mult_yellow", "name": "Yellow Mastery", "base_cost": 200, "desc": "+10% Yellow Score"},
 ]
 
 var diamond_upgrades = [
-	{"id": "super_diamond", "name": "Super Diamond", "base_cost": 10, "desc": "1% Chance/Lvl", "currency": "diamonds", "max": 20},
-	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlock Row Clear Spell", "max": 1, "currency": "diamonds"},
-	{"id": "cinderella", "name": "Cinderella Strat", "base_cost": 250, "desc": "+25% Green Spawn", "max": 1, "currency": "diamonds"}
+	{"id": "super_diamond", "name": "Gem Fortune", "base_cost": 10, "desc": "+1% Super Diamond Chance per Tile in a Super Match (4 or more)", "currency": "diamonds", "max": 20},
+	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlocks Harvest Spell, a powerful spell that allows you to safely collect all tiles in a row", "max": 1, "currency": "diamonds"},
+	{"id": "cinderella", "name": "Cinderella", "base_cost": 250, "desc": "+25% Green Tile Spawn Rate", "max": 4, "currency": "diamonds"}
 	
 ]
 
