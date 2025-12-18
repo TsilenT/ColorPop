@@ -204,30 +204,19 @@ func resize_game():
 	update_dock_layout()
 
 func update_dock_layout():
-	# Align SpellDock exactly with the TILE GRID (Visual Tiles)
-	# User reported Frame was at 45, Grid at 100.
-	# To center under the "Board" (Tiles), we align to GRID_OFFSET.
 	var dock = $HUD/UIContainer/SpellDock
-	# Grid metrics
-	var grid_width = COLS * TILE_SIZE # 560
+	var board_frame = $BoardFrame
 	
-	if dock:
-		# Calculate dynamic width based on visibility
-		var harvest_btn = $HUD/UIContainer/SpellDock/HBox/HarvestButton
-		# Min Content: 120 (Mana) + 160 (Spell) + 20 (Sep) + 32 (Margins) = 332.
-		var target_width = 340 # Compact size (enough for content + margins)
-		if harvest_btn and harvest_btn.visible:
-			target_width = COLS * TILE_SIZE # Full Grid Width (560)
-			
-		dock.custom_minimum_size.x = target_width
-		dock.size.x = target_width
+	if dock and board_frame:
+		# Reset size constraints to allow shrinking
+		dock.custom_minimum_size.x = 0
+		dock.size.x = 0 # Force reset to min size
 		
-		# Align Center of Dock with Center of Grid
-		# Grid Left = GRID_OFFSET.x - 35 = 65.
-		# Grid Center = 65 + (560 / 2) = 345.
-		var grid_center_x = (GRID_OFFSET.x - (TILE_SIZE / 2.0)) + ((COLS * TILE_SIZE) / 2.0)
+		var frame_center = board_frame.position.x + (board_frame.size.x / 2.0)
+		var dock_width = dock.get_combined_minimum_size().x
 		
-		dock.position.x = grid_center_x - (target_width / 2.0)
+		# Center based on actual content width
+		dock.position.x = frame_center - (dock_width / 2.0)
 		
 		# Keep Y at bottom
 		var vp_size = get_viewport_rect().size
@@ -428,13 +417,19 @@ func process_match_group(group: Array):
 	# Apply Diamond Multiplier to TOTAL match score
 	match_score *= diamond_mult
 		
+	# Check if Visual Effects are enabled
+	var fx_enabled = true
+	if level_manager and level_manager.save_manager:
+		fx_enabled = level_manager.save_manager.get_setting("visual_effects_enabled", true)
+
 	# Side Effects (Green/Blue/Black)
 	if has_concrete_type:
 		if type == Tile.Type.BLACK:
 			# Black tiles are negative points or just penalties? 
 			# Assuming they have a score value defined in LevelManager (usually negative)
 			# Show the score text specifically for Black
-			spawn_floating_text(center_pos, "%d" % int(match_score), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
+			if fx_enabled:
+				spawn_floating_text(center_pos, "%d" % int(match_score), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
 			
 		if type == Tile.Type.GREEN:
 			green_matched_this_turn = true
@@ -446,7 +441,8 @@ func process_match_group(group: Array):
 			
 			multiplier += gain
 			add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
-			spawn_floating_text(center_pos + Vector2(0, -20), "+%.2fx Mult" % gain, Color.GREEN)
+			if fx_enabled:
+				spawn_floating_text(center_pos + Vector2(0, -20), "+%.2fx Mult" % gain, Color.GREEN)
 		
 		if type == Tile.Type.BLUE:
 			var gain = match_count * 5 * efficiency
@@ -455,36 +451,38 @@ func process_match_group(group: Array):
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
 			add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
-			spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE, 1.0, Color.WHITE)
+			if fx_enabled:
+				spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE, 1.0, Color.WHITE)
 
 	score = max(0, score + match_score)
 	
-	# FX: Screen Shake
-	if match_count >= 4:
-		var shake = 0.0
-		if match_count == 4: shake = 5.0
-		else: shake = 5.0 + ((match_count - 4) * 4.0)
-		shake_screen(min(shake, 35.0))
-		
-	# FX: Particles
-	if MatchParticlesScene:
-		var parts = MatchParticlesScene.instantiate()
-		add_child(parts)
-		parts.global_position = center_pos
-		var p_color = TILE_COLORS.get(type, Color.WHITE)
-		
-		if parts is CPUParticles2D:
-			parts.color = p_color
-		elif parts is GPUParticles2D and parts.process_material is ParticleProcessMaterial:
-			parts.process_material.color = p_color
+	if fx_enabled:
+		# FX: Screen Shake
+		if match_count >= 4:
+			var shake = 0.0
+			if match_count == 4: shake = 5.0
+			else: shake = 5.0 + ((match_count - 4) * 4.0)
+			shake_screen(min(shake, 35.0))
 			
-	# FX: Main Score Text (Skip for Black since we handled it above specially, OR ensure we don't double dip)
-	if match_score != 0 and type != Tile.Type.BLACK: # Black uses special negative formatting above
-		var txt_color = TILE_COLORS.get(type, Color.WHITE)
-		var display_score = match_score
-		var prefix = "+"
-		if match_score < 0: prefix = "" # formatted automatically? %d with negative shows -
-		spawn_floating_text(center_pos, "%+d" % int(match_score), txt_color, 1.2)
+		# FX: Particles
+		if MatchParticlesScene:
+			var parts = MatchParticlesScene.instantiate()
+			add_child(parts)
+			parts.global_position = center_pos
+			var p_color = TILE_COLORS.get(type, Color.WHITE)
+			
+			if parts is CPUParticles2D:
+				parts.color = p_color
+			elif parts is GPUParticles2D and parts.process_material is ParticleProcessMaterial:
+				parts.process_material.color = p_color
+				
+		# FX: Main Score Text (Skip for Black since we handled it above specially, OR ensure we don't double dip)
+		if match_score != 0 and type != Tile.Type.BLACK: # Black uses special negative formatting above
+			var txt_color = TILE_COLORS.get(type, Color.WHITE)
+			var display_score = match_score
+			var prefix = "+"
+			if match_score < 0: prefix = "" # formatted automatically? %d with negative shows -
+			spawn_floating_text(center_pos, "%+d" % int(match_score), txt_color, 1.2)
 	
 	if match_score != 0:
 		var log_msg = "Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)]
@@ -798,6 +796,7 @@ func update_ui():
 			harvest_button.visible = false
 	
 	update_legend()
+	update_dock_layout()
 
 func setup_legend_ui():
 	var vbox = $HUD/UIContainer/RightPanel/VBox
