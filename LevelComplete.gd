@@ -93,10 +93,13 @@ func skip_animation():
 	diam_reward.text = "+%d" % target_diam
 	cont_label.modulate.a = 1.0
 	
-	animation_finished = true
-	
 	# Play a finish sound?
 	if sound_manager: sound_manager.play_ui_click()
+
+	# Add a small delay/cooldown before allowing potential "Continue" input
+	# This prevents double-events (Touch + Mouse Emulation) from skipping AND dismissing in one frame
+	await get_tree().create_timer(0.3).timeout
+	animation_finished = true
 
 func _ready():
 	set_process_input(false)

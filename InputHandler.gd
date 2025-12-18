@@ -157,7 +157,7 @@ func create_highlights(grid_pos: Vector2i):
 	if not tile: return
 	
 	highlight_rect = Line2D.new()
-	highlight_rect.default_color = Color(1, 0.8, 0.2, 0.8)
+	highlight_rect.default_color = Color(1, 1, 1, 0.5)
 	highlight_rect.width = 4.0
 	highlight_rect.closed = true
 	var s = (TILE_SIZE / 2.0) - 4

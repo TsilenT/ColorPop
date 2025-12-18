@@ -45,7 +45,7 @@ func update_visuals():
 	if icon_label:
 		if tile_type == Type.GREEN:
 			icon_label.visible = true
-			icon_label.text = "x2"
+			icon_label.text = "X"
 		else:
 			icon_label.visible = false
 			icon_label.text = ""
