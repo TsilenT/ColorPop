@@ -28,18 +28,18 @@ var gold_upgrades = [
 ]
 
 var diamond_upgrades = [
-	{"id": "super_diamond", "name": "Gem Fortune", "base_cost": 10, "desc": "+1% Super Diamond Chance per Tile in a Super Match (4 or more)", "currency": "diamonds", "max": 20},
-	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlocks Harvest Spell: Safely collect all tiles in a row", "max": 1, "currency": "diamonds"},
+	{"id": "super_diamond", "name": "Gem Fortune", "base_cost": 10, "desc": "+1% Super Diamond Chance Per Tile in a Super Match (4 or More)", "currency": "diamonds", "max": 20},
+	{"id": "harvest", "name": "Harvest", "base_cost": 100, "desc": "Unlocks Harvest Spell: Safely Collect All Tiles in a Row", "max": 1, "currency": "diamonds"},
 	{"id": "cinderella", "name": "Cinderella", "base_cost": 250, "desc": "+25% Green Tile Spawn Rate", "max": 4, "currency": "diamonds"},
-	{"id": "columns", "name": "Grid Expansion", "base_cost": 2000, "desc": "More Columns means more tiles!", "max": 2, "currency": "diamonds"}
+	{"id": "columns", "name": "Grid Expansion", "base_cost": 2000, "desc": "More Columns Means More Tiles!", "max": 2, "currency": "diamonds"}
 	
 ]
 
 const EXCHANGE_ITEMS = [
-	{"id": "exchange_10", "name": "Small Pouch", "base_cost": 10, "desc": "100 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
-	{"id": "exchange_100", "name": "Medium Bag", "base_cost": 100, "desc": "1,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
-	{"id": "exchange_1k", "name": "Large Sack", "base_cost": 1000, "desc": "10,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
-	{"id": "exchange_10k", "name": "Vault", "base_cost": 10000, "desc": "100,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1}
+	{"id": "exchange_10", "name": "Small Pouch", "base_cost": 10, "desc": "50 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
+	{"id": "exchange_100", "name": "Medium Bag", "base_cost": 100, "desc": "500 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
+	{"id": "exchange_1k", "name": "Large Sack", "base_cost": 1000, "desc": "5,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
+	{"id": "exchange_10k", "name": "Vault", "base_cost": 10000, "desc": "50,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1}
 ]
 
 func _ready():
@@ -130,7 +130,7 @@ func _on_buy_pressed(key: String, cost: int):
 		# Handle Exchange Items (Special Case)
 		if key.begins_with("exchange_"):
 			if level_manager.save_manager.spend_diamonds(cost):
-				var gold_gain = cost * 10
+				var gold_gain = cost * 5
 				level_manager.save_manager.add_gold(gold_gain)
 				
 				show_feedback("Converted!", Color.GREEN)

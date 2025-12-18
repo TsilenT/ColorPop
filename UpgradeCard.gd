@@ -7,6 +7,8 @@ signal buy_pressed(id: String, cost: int)
 @onready var desc_label: Label = $VBox/DescLabel
 @onready var lvl_label: Label = $VBox/LevelContainer/LevelLabel
 @onready var buy_button: Button = $VBox/BuyButton
+@onready var cost_label: Label = $VBox/BuyButton/Content/CostLabel
+@onready var icon_rect: TextureRect = $VBox/BuyButton/Content/IconRect
 
 var upgrade_id: String
 var current_cost: int
@@ -37,18 +39,25 @@ func setup(data, current_level: int):
 	
 	buy_button.pressed.connect(_on_buy_pressed)
 	
-	# Styling based on currency
+
+	buy_button.text = "" # Clear default
+	buy_button.icon = null
+	
 	var currency = data.get("currency", "gold")
 	if is_maxed:
-		buy_button.text = "MAXED"
+		cost_label.text = "MAXED"
+		icon_rect.visible = false
 		buy_button.disabled = true
 	else:
 		if currency == "diamonds":
-			buy_button.text = "%d d" % current_cost # Unicode diamond or just text
-			buy_button.add_theme_color_override("font_color", Color(0.26, 0.8, 1))
+			cost_label.text = "%d" % current_cost
+			icon_rect.texture = preload("res://assets/icon_diamond.svg")
+			icon_rect.visible = true
+			cost_label.add_theme_color_override("font_color", Color(0.26, 0.8, 1))
 		else:
-			buy_button.text = "%d g" % current_cost
-			buy_button.add_theme_color_override("font_color", Color(1, 1, 0.6))
+			cost_label.text = "%d g" % current_cost
+			icon_rect.visible = false
+			cost_label.add_theme_color_override("font_color", Color(1, 1, 0.6))
 	
 func update_state(player_currency: int):
 	if is_maxed:
