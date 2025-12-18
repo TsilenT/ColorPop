@@ -196,7 +196,7 @@ func start_next_level():
 	mana = 0
 	
 	if log_label:
-		log_label.text = "Welcome to Match-3 Roguelite!"
+		log_label.text = "Welcome to ColorPop!"
 	
 	if score_bar:
 		score_bar.max_value = target
