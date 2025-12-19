@@ -22,7 +22,8 @@ var data = {
 		"highlight_enabled": true,
 		"visual_effects_enabled": true,
 		"sfx_volume": 0.5,
-		"music_volume": 0.5
+		"music_volume": 0.5,
+		"difficulty": "normal"
 	},
 	"diamonds": 0,
 	"stats": {

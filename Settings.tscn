@@ -56,6 +56,25 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 20
 
+[node name="DifficultyContainer" type="HBoxContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBoxContainer/DifficultyContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Difficulty"
+
+[node name="DifficultyOption" type="OptionButton" parent="Panel/VBoxContainer/DifficultyContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+selected = 1
+item_count = 3
+popup/item_0/text = "Easy"
+popup/item_1/text = "Normal"
+popup/item_1/id = 1
+popup/item_2/text = "Hard"
+popup/item_2/id = 2
+
 [node name="HighlightToggle" type="CheckButton" parent="Panel/VBoxContainer"]
 layout_mode = 2
 text = "Highlight Valid Moves"

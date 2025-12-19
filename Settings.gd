@@ -8,6 +8,7 @@ var sound_manager
 
 @onready var highlight_toggle: CheckButton = $Panel/VBoxContainer/HighlightToggle
 @onready var vfx_toggle: CheckButton = $Panel/VBoxContainer/VFXToggle
+@onready var difficulty_option: OptionButton = $Panel/VBoxContainer/DifficultyContainer/DifficultyOption
 @onready var sfx_slider: HSlider = $Panel/VBoxContainer/SFXSlider
 @onready var music_slider: HSlider = $Panel/VBoxContainer/MusicSlider
 @onready var close_button: Button = $Panel/CloseButton
@@ -19,6 +20,8 @@ func _ready():
 		highlight_toggle.toggled.connect(_on_highlight_toggled)
 	if vfx_toggle:
 		vfx_toggle.toggled.connect(_on_vfx_toggled)
+	if difficulty_option:
+		difficulty_option.item_selected.connect(_on_difficulty_selected)
 	if sfx_slider:
 		sfx_slider.value_changed.connect(_on_sfx_volume_changed)
 	if music_slider:
@@ -40,6 +43,21 @@ func setup(lm, sm = null):
 		var mus_vol = level_manager.save_manager.get_setting("music_volume", 0.5)
 		if music_slider: music_slider.value = mus_vol
 		
+		# Difficulty Setup
+		var difficulty = level_manager.save_manager.get_setting("difficulty", "normal")
+		if difficulty_option:
+			var idx = 1 # Normal
+			if difficulty == "easy": idx = 0
+			elif difficulty == "hard": idx = 2
+			difficulty_option.selected = idx
+
+func _on_difficulty_selected(idx: int):
+	if level_manager and level_manager.save_manager:
+		var difficulty = "normal"
+		if idx == 0: difficulty = "easy"
+		elif idx == 2: difficulty = "hard"
+		level_manager.save_manager.set_setting("difficulty", difficulty)
+
 func _on_highlight_toggled(toggled_on: bool):
 	if level_manager and level_manager.save_manager:
 		level_manager.save_manager.set_setting("highlight_enabled", toggled_on)

@@ -58,8 +58,16 @@ func get_tile_score(type: Tile.Type) -> int:
 	return tile_scores.get(type, 0)
 
 func complete_level(final_score: int, turns_left: int) -> Dictionary:
-	# Gold: 2% of Score
-	var gold_reward = int(final_score * 0.02)
+	# Gold: 2% of Score * Difficulty Multiplier
+	var difficulty = save_manager.get_setting("difficulty", "normal")
+	var diff_mult = 2.0 # Normal default (2x existing)
+	
+	if difficulty == "hard":
+		diff_mult = 1.0 # Original (1x)
+	elif difficulty == "easy":
+		diff_mult = 4.0 # 4x
+		
+	var gold_reward = int(final_score * 0.02 * diff_mult)
 	
 	# Diamonds: 0.5 * Level * Turns
 	var base_diamonds = floor(turns_left * 0.5 * current_level)
