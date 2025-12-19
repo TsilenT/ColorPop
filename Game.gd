@@ -745,6 +745,11 @@ func check_game_over():
 		if level_manager and level_manager.save_manager:
 			level_manager.save_manager.update_highest_level(level_manager.current_level)
 		
+		# Award Gold for Failure (Consolation)
+		var rewards = {"gold": 0}
+		if level_manager:
+			rewards = level_manager.complete_level(score, 0) # 0 turns left
+		
 		# Show Game Over Screen
 		var game_over_scn = preload("res://GameOver.tscn").instantiate()
 		game_over_scn.name = "GameOver"
@@ -754,7 +759,7 @@ func check_game_over():
 		if level_manager and level_manager.save_manager:
 			best_lvl = level_manager.save_manager.get_highest_level()
 			
-		game_over_scn.setup(level_manager.current_level, best_lvl, "Out of Turns!")
+		game_over_scn.setup(level_manager.current_level, best_lvl, "Out of Turns!", rewards.get("gold", 0))
 		
 		game_over_scn.restart_requested.connect(func():
 			game_over_scn.queue_free()

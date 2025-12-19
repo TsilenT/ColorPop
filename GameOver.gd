@@ -5,12 +5,19 @@ signal restart_requested
 @onready var reason_label = $Panel/VBox/ReasonLabel
 @onready var level_label = $Panel/VBox/StatsContainer/LevelLabel
 @onready var best_label = $Panel/VBox/StatsContainer/BestLabel
+@onready var gold_label = $Panel/VBox/StatsContainer/GoldLabel
 @onready var restart_button = $Panel/VBox/RestartButton
 
-func setup(current_level: int, best_level: int, reason: String):
+func setup(current_level: int, best_level: int, reason: String, gold_earned: int = 0):
 	reason_label.text = reason
 	level_label.text = "Reached Level %d" % current_level
 	best_label.text = "Best: Level %d" % best_level
+	
+	if gold_earned > 0:
+		gold_label.text = "+%d Gold" % gold_earned
+		gold_label.visible = true
+	else:
+		gold_label.visible = false
 	
 	# Simple pop-in animation
 	$Panel.scale = Vector2.ZERO
