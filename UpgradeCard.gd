@@ -40,7 +40,7 @@ func setup(data, current_level: int, multiplier: int = 1):
 			# Exchange items don't scale cost with level, just multiply base by amount
 			current_cost = base * purchase_amount
 		else:
-			# Formula: n * B + (B * 0.5) * n * (L + (n - 1) / 2.0)
+			# Formula: n * B + (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
 			# n = purchase_amount
 			# L = current_level
 			# B = base
@@ -51,7 +51,7 @@ func setup(data, current_level: int, multiplier: int = 1):
 
 			# Breaking down to avoid float issues where possible, though 0.5 forces float
 			var base_term = n * B
-			var scale_term = (B * 0.5) * n * (L + (n - 1) / 2.0)
+			var scale_term = (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
 
 			current_cost = int(base_term + scale_term)
 	
