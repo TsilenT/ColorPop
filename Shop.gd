@@ -11,9 +11,17 @@ signal upgrade_purchased(key: String, cost: int)
 @onready var gold_tab: Button = $Panel/Tabs/GoldTab
 @onready var diam_tab: Button = $Panel/Tabs/DiamondTab
 
+@onready var mult_btns = {
+	1: $Panel/MultiplierContainer/Mult1x,
+	10: $Panel/MultiplierContainer/Mult10x,
+	100: $Panel/MultiplierContainer/Mult100x,
+	1000: $Panel/MultiplierContainer/Mult1000x
+}
+
 var level_manager = null
 var sound_manager = null
 var current_tab = "gold"
+var purchase_multiplier = 1
 
 # Upgrade Definitions
 var gold_upgrades = [
@@ -53,6 +61,10 @@ func _ready():
 	if diam_tab:
 		diam_tab.pressed.connect(switch_tab.bind("diamonds"))
 
+	for m in mult_btns:
+		if mult_btns[m]:
+			mult_btns[m].pressed.connect(_on_multiplier_pressed.bind(m))
+
 func setup(lm, sm = null):
 	level_manager = lm
 	sound_manager = sm
@@ -90,6 +102,11 @@ func refresh_ui():
 	if gold_tab: gold_tab.modulate = Color(1, 1, 1) if current_tab == "gold" else Color(0.5, 0.5, 0.5)
 	if diam_tab: diam_tab.modulate = Color(1, 1, 1) if current_tab == "diamonds" else Color(0.5, 0.5, 0.5)
 	
+	# Multiplier Styling
+	for m in mult_btns:
+		if mult_btns[m]:
+			mult_btns[m].modulate = Color(1, 1, 1) if purchase_multiplier == m else Color(0.5, 0.5, 0.5)
+
 	# Clear existing children
 	for child in grid_container.get_children():
 		child.queue_free()
@@ -114,7 +131,7 @@ func refresh_ui():
 		grid_container.add_child(card)
 		
 		var lvl = level_manager.save_manager.get_upgrade_level(up["id"])
-		card.setup(up, lvl)
+		card.setup(up, lvl, purchase_multiplier)
 		card.update_state(currency_amount)
 		
 		# Connect signal
@@ -125,7 +142,12 @@ var UpgradeCardScene = preload("res://UpgradeCard.tscn")
 @onready var feedback_label: Label = $FeedbackLabel
 
 
-func _on_buy_pressed(key: String, cost: int):
+func _on_multiplier_pressed(m: int):
+	if sound_manager: sound_manager.play_tone(400, 0.05)
+	purchase_multiplier = m
+	refresh_ui()
+
+func _on_buy_pressed(key: String, cost: int, amount: int = 1):
 	if level_manager:
 		# Handle Exchange Items (Special Case)
 		if key.begins_with("exchange_"):
@@ -145,7 +167,7 @@ func _on_buy_pressed(key: String, cost: int):
 		var currency = "gold"
 		if current_tab == "diamonds": currency = "diamonds"
 		
-		if level_manager.purchase_upgrade(key, cost, currency):
+		if level_manager.purchase_upgrade(key, cost, currency, amount):
 			show_feedback("Purchased!", Color.GREEN)
 			if sound_manager: sound_manager.play_match(3) # Nice ding
 			emit_signal("upgrade_purchased", key, cost)

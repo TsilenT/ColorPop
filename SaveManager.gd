@@ -103,11 +103,11 @@ func spend_diamonds(amount: int) -> bool:
 func get_upgrade_level(key: String) -> int:
 	return data["upgrades"].get(key, 0)
 
-func increment_upgrade(key: String):
+func increment_upgrade(key: String, amount: int = 1):
 	if key in data["upgrades"]:
-		data["upgrades"][key] += 1
+		data["upgrades"][key] += amount
 	else:
-		data["upgrades"][key] = 1
+		data["upgrades"][key] = amount
 	save_game()
 
 func get_setting(key: String, default = null):
