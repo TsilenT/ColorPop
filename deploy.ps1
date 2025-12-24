@@ -95,9 +95,12 @@ try {
         Write-Warning "Godot Legacy export failed"
     }
     else {
-        # 10. Push Legacy Channel
-        Write-Host "Pushing Legacy Build to 'match3game' channel..." -ForegroundColor Cyan
-        & $BUTLER_PATH push $LEGACY_BUILD_DIR "$ITCH_USER/$ITCH_GAME`:match3game"
+        # 10. Push Legacy Project
+        # Pushing to a separate itch.io project "match3game" (HTML5 channel)
+        # instead of a channel on "ColorPop".
+        $LEGACY_ITCH_GAME = "match3game"
+        Write-Host "Pushing Legacy Build to project '$LEGACY_ITCH_GAME'..." -ForegroundColor Cyan
+        & $BUTLER_PATH push $LEGACY_BUILD_DIR "$ITCH_USER/$LEGACY_ITCH_GAME`:$CHANNEL"
     }
 
 }
