@@ -13,6 +13,10 @@ $CHANNEL = "html5"
 if (-not $GODOT_PATH) { $GODOT_PATH = "C:\Program Files\godot\godot_console.exe" }
 if (-not $BUTLER_PATH) { $BUTLER_PATH = "C:\Program Files\butler\butler.exe" }
 
+# Fix Java Environment for Signing
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+
 Write-Host "Using Godot Path: $GODOT_PATH" -ForegroundColor Gray
 Write-Host "Using Butler Path: $BUTLER_PATH" -ForegroundColor Gray
 $BUILD_DIR = ".\builds\web"
@@ -33,8 +37,33 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 3. Push with Butler
-Write-Host "Pushing to itch.io..." -ForegroundColor Cyan
+# 3. Push Web Build
+Write-Host "Pushing Web Build to itch.io..." -ForegroundColor Cyan
 & $BUTLER_PATH push $BUILD_DIR "$ITCH_USER/$ITCH_GAME`:$CHANNEL"
+
+# ---------------------------------------------------------
+# ANDROID DEPLOYMENT
+# ---------------------------------------------------------
+$ANDROID_BUILD_DIR = ".\builds\android"
+$ANDROID_PRESET_NAME = "Android"
+
+# 4. Clean Android build
+if (Test-Path $ANDROID_BUILD_DIR) {
+    Remove-Item -Recurse -Force $ANDROID_BUILD_DIR
+}
+New-Item -ItemType Directory -Force -Path $ANDROID_BUILD_DIR | Out-Null
+
+# 5. Export Android APK
+Write-Host "Exporting Android APK (Debug)..." -ForegroundColor Cyan
+& $GODOT_PATH --headless --export-debug $ANDROID_PRESET_NAME "$ANDROID_BUILD_DIR/$ITCH_GAME.apk"
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Godot Android export failed!"
+    exit 1
+}
+
+# 6. Push Android Build
+Write-Host "Pushing Android Build to itch.io..." -ForegroundColor Cyan
+& $BUTLER_PATH push "$ANDROID_BUILD_DIR/$ITCH_GAME.apk" "$ITCH_USER/$ITCH_GAME`:android"
 
 Write-Host "Deployment Complete!" -ForegroundColor Green

@@ -26,4 +26,5 @@ window/handheld/orientation="sensor_landscape"
 
 [rendering]
 
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.101961, 0.101961, 0.180392, 1)
