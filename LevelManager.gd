@@ -87,14 +87,14 @@ func get_black_tile_score() -> int:
 	return -50 - (current_level * 50)
 
 
-func purchase_upgrade(key: String, cost: int, currency: String = "gold") -> bool:
+func purchase_upgrade(key: String, cost: int, currency: String = "gold", amount: int = 1) -> bool:
 	if currency == "diamonds":
 		if save_manager.spend_diamonds(cost):
-			save_manager.increment_upgrade(key)
+			save_manager.increment_upgrade(key, amount)
 			return true
 	else:
 		if save_manager.spend_gold(cost):
-			save_manager.increment_upgrade(key)
+			save_manager.increment_upgrade(key, amount)
 			return true
 	return false
 
