@@ -66,4 +66,46 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Pushing Android Build to itch.io..." -ForegroundColor Cyan
 & $BUTLER_PATH push "$ANDROID_BUILD_DIR/$ITCH_GAME.apk" "$ITCH_USER/$ITCH_GAME`:android"
 
+# ---------------------------------------------------------
+# LEGACY DEPLOYMENT ("Match-3 Game")
+# ---------------------------------------------------------
+# This allows old save files (stored under "Match-3 Game") to keep working
+# for specific users on the "match3game" channel.
+$LEGACY_PRESET_NAME = "Web"
+$LEGACY_BUILD_DIR = ".\builds\web_legacy"
+$PROJECT_FILE = ".\project.godot"
+
+# 7. Clean Legacy Output
+if (Test-Path $LEGACY_BUILD_DIR) {
+    Remove-Item -Recurse -Force $LEGACY_BUILD_DIR
+}
+New-Item -ItemType Directory -Force -Path $LEGACY_BUILD_DIR | Out-Null
+
+# 8. Modify project.godot (Rename "ColorPop" -> "Match-3 Game")
+Write-Host "Preparing Legacy Build (Renaming Project)..." -ForegroundColor Yellow
+$content = Get-Content $PROJECT_FILE
+$content | ForEach-Object { $_ -replace 'config/name="ColorPop"', 'config/name="Match-3 Game"' } | Set-Content $PROJECT_FILE
+
+try {
+    # 9. Export Legacy Web
+    Write-Host "Exporting Legacy Web Build..." -ForegroundColor Cyan
+    & $GODOT_PATH --headless --export-release $LEGACY_PRESET_NAME "$LEGACY_BUILD_DIR/index.html"
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Godot Legacy export failed"
+    }
+    else {
+        # 10. Push Legacy Channel
+        Write-Host "Pushing Legacy Build to 'match3game' channel..." -ForegroundColor Cyan
+        & $BUTLER_PATH push $LEGACY_BUILD_DIR "$ITCH_USER/$ITCH_GAME`:match3game"
+    }
+
+}
+finally {
+    # 11. Revert project.godot
+    Write-Host "Reverting Project Name..." -ForegroundColor Yellow
+    $content = Get-Content $PROJECT_FILE
+    $content | ForEach-Object { $_ -replace 'config/name="Match-3 Game"', 'config/name="ColorPop"' } | Set-Content $PROJECT_FILE
+}
+
 Write-Host "Deployment Complete!" -ForegroundColor Green
