@@ -44,10 +44,7 @@ var diamond_upgrades = [
 ]
 
 const EXCHANGE_ITEMS = [
-	{"id": "exchange_10", "name": "Small Pouch", "base_cost": 10, "desc": "50 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
-	{"id": "exchange_100", "name": "Medium Bag", "base_cost": 100, "desc": "500 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
-	{"id": "exchange_1k", "name": "Large Sack", "base_cost": 1000, "desc": "5,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1},
-	{"id": "exchange_10k", "name": "Vault", "base_cost": 10000, "desc": "50,000 Gold", "currency": "diamonds", "hide_level": true, "max": - 1}
+	{"id": "exchange_100", "name": "Gold Sack", "base_cost": 100, "desc": "500 Gold", "currency": "diamonds", "hide_level": true, "max": - 1}
 ]
 
 func _ready():
@@ -63,7 +60,12 @@ func _ready():
 
 	for m in mult_btns:
 		if mult_btns[m]:
+			mult_btns[m].mouse_entered.connect(func(): if sound_manager: sound_manager.play_tone(500, 0.02)) # Optional hover sound
 			mult_btns[m].pressed.connect(_on_multiplier_pressed.bind(m))
+			mult_btns[m].focus_mode = Control.FOCUS_NONE
+
+	if gold_tab: gold_tab.focus_mode = Control.FOCUS_NONE
+	if diam_tab: diam_tab.focus_mode = Control.FOCUS_NONE
 
 func setup(lm, sm = null):
 	level_manager = lm
@@ -90,22 +92,39 @@ func are_all_diamond_upgrades_maxed() -> bool:
 func refresh_ui():
 	if not level_manager: return
 	
-	gold_label.text = "Gold: %d" % level_manager.save_manager.get_gold()
+	gold_label.text = "Gold: %s" % Utils.format_currency(level_manager.save_manager.get_gold())
 	var diam_label = $Panel/DiamondLabel
 	if diam_label:
 		diam_label.visible = (current_tab == "diamonds")
-		diam_label.text = "Diamonds: %d" % level_manager.save_manager.get_diamonds()
+		diam_label.text = "Diamonds: %s" % Utils.format_currency(level_manager.save_manager.get_diamonds())
 	
 	gold_label.visible = (current_tab == "gold")
 	
 	# Tab Styling
-	if gold_tab: gold_tab.modulate = Color(1, 1, 1) if current_tab == "gold" else Color(0.5, 0.5, 0.5)
-	if diam_tab: diam_tab.modulate = Color(1, 1, 1) if current_tab == "diamonds" else Color(0.5, 0.5, 0.5)
+	var active_color_gold = Color(1, 0.84, 0)
+	var active_color_diam = Color(0.26, 0.8, 1)
+	
+	# Subdued colors (Darkened)
+	var inactive_gold = active_color_gold.darkened(0.5)
+	var inactive_diam = active_color_diam.darkened(0.5)
+	var inactive_white = Color(0.6, 0.6, 0.6) # For multipliers
+	
+	if gold_tab:
+		var active = (current_tab == "gold")
+		var c = active_color_gold if active else inactive_gold
+		_set_btn_color(gold_tab, c, active)
+		
+	if diam_tab:
+		var active = (current_tab == "diamonds")
+		var c = active_color_diam if active else inactive_diam
+		_set_btn_color(diam_tab, c, active)
 	
 	# Multiplier Styling
 	for m in mult_btns:
 		if mult_btns[m]:
-			mult_btns[m].modulate = Color(1, 1, 1) if purchase_multiplier == m else Color(0.5, 0.5, 0.5)
+			var active = (purchase_multiplier == m)
+			var c = Color.WHITE if active else inactive_white
+			_set_btn_color(mult_btns[m], c, active)
 
 	# Clear existing children
 	for child in grid_container.get_children():
@@ -201,3 +220,40 @@ func show_feedback(text: String, color: Color):
 func _on_close_button_pressed():
 	if sound_manager: sound_manager.play_tone(300, 0.05)
 	emit_signal("close_requested")
+
+func _set_btn_color(btn: Button, color: Color, is_active: bool = false):
+	btn.add_theme_color_override("font_color", color)
+	btn.add_theme_color_override("font_pressed_color", color)
+	btn.add_theme_color_override("font_hover_color", color)
+	btn.add_theme_color_override("font_focus_color", color)
+	
+	if is_active:
+		# Create a StyleBox that looks like the button is selected (Border)
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0.5) # Semi-transparent background
+		sb.border_width_bottom = 2
+		sb.border_width_top = 2
+		sb.border_width_left = 2
+		sb.border_width_right = 2
+		sb.border_color = Color.WHITE
+		sb.corner_radius_top_left = 4
+		sb.corner_radius_top_right = 4
+		sb.corner_radius_bottom_right = 4
+		sb.corner_radius_bottom_left = 4
+		
+		btn.add_theme_stylebox_override("normal", sb)
+		btn.add_theme_stylebox_override("hover", sb)
+		btn.add_theme_stylebox_override("pressed", sb)
+		
+		# Keep the text outline for extra pop? Or maybe too much?
+		# User said "white outline on the whole button".
+		# Let's remove the text outline to be safe and stick to the box.
+		btn.add_theme_constant_override("outline_size", 0)
+	else:
+		btn.remove_theme_stylebox_override("normal")
+		btn.remove_theme_stylebox_override("hover")
+		btn.remove_theme_stylebox_override("pressed")
+		btn.add_theme_constant_override("outline_size", 0)
+	
+	# Also reset modulate just in case
+	btn.modulate = Color(1, 1, 1)

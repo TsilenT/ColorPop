@@ -35,9 +35,9 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -500.0
+offset_left = -540.0
 offset_top = -300.0
-offset_right = 500.0
+offset_right = 540.0
 offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
@@ -66,40 +66,57 @@ theme_override_constants/separation = 20
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.84, 0, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.84, 0, 1)
+theme_override_colors/font_hover_color = Color(1, 0.84, 0, 1)
+theme_override_colors/font_focus_color = Color(1, 0.84, 0, 1)
 text = "GOLD SHOP"
 
 [node name="DiamondTab" type="Button" parent="Panel/Tabs"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.26, 0.8, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.26, 0.8, 1, 1)
+theme_override_colors/font_hover_color = Color(0.26, 0.8, 1, 1)
+theme_override_colors/font_focus_color = Color(0.26, 0.8, 1, 1)
 text = "DIAMOND SHOP"
 
-[node name="MultiplierContainer" type="HBoxContainer" parent="Panel"]
-layout_mode = 0
-offset_left = 460.0
-offset_top = 70.0
-offset_right = 740.0
-offset_bottom = 110.0
+[node name="MultiplierContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -100.0
+offset_right = -20.0
+offset_bottom = 100.0
+grow_horizontal = 0
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Mult1x" type="Button" parent="Panel/MultiplierContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 text = "1x"
 
 [node name="Mult10x" type="Button" parent="Panel/MultiplierContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 text = "10x"
 
 [node name="Mult100x" type="Button" parent="Panel/MultiplierContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 text = "100x"
 
 [node name="Mult1000x" type="Button" parent="Panel/MultiplierContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 text = "1000x"
 
 [node name="GoldLabel" type="Label" parent="Panel"]
@@ -167,7 +184,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 50.0
 offset_top = 130.0
-offset_right = -50.0
+offset_right = -100.0
 offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 2

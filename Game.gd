@@ -647,21 +647,6 @@ func get_spell_cost() -> int:
 #endregion
 
 # Helpers
-func format_currency(amount: int) -> String:
-	if amount >= 10000:
-		var k_val = amount / 1000.0
-		# Format to 1 decimal place, e.g. 10.5k. If it's 10.0k, maybe just 10k? 
-		# Let's simple use 0 decimal places if > 100k? 
-		# User example: "91k". 
-		# Let's do nearest integer k if > 10000. 
-		# actually "91.3k" fit? 
-		# User said "e.g. 91k". Let's try 1 decimal place if < 100k, 0 if > 100k.
-		if amount < 100000:
-			return "%.1fk" % k_val
-		else:
-			return "%dk" % int(k_val)
-	return str(amount)
-
 func add_log(msg: String):
 	if log_label:
 		log_label.text += "\n" + msg
@@ -779,9 +764,9 @@ func update_ui():
 	if turns_label: turns_label.text = "Turns: %d" % turns
 	if multi_label: multi_label.text = "Multiplier: %.2fx" % multiplier
 	if gold_label and level_manager:
-		gold_label.text = format_currency(level_manager.save_manager.get_gold())
+		gold_label.text = Utils.format_currency(level_manager.save_manager.get_gold())
 	if diam_label and level_manager:
-		diam_label.text = format_currency(level_manager.save_manager.get_diamonds())
+		diam_label.text = Utils.format_currency(level_manager.save_manager.get_diamonds())
 	
 	var max_mana = get_max_mana()
 	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]

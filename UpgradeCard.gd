@@ -39,12 +39,15 @@ func setup(data, current_level: int, multiplier: int = 1):
 		if upgrade_id.begins_with("exchange_"):
 			# Exchange items don't scale cost with level, just multiply base by amount
 			current_cost = base * purchase_amount
+			# Update Description dynamically
+			# 100 Diamonds = 500 Gold. So 5 * cost.
+			var gold_amount = current_cost * 5
+			desc_label.text = "%s Gold" % Utils.format_currency(gold_amount)
 		else:
 			# Formula: n * B + (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
 			# n = purchase_amount
 			# L = current_level
 			# B = base
-
 			var n = purchase_amount
 			var L = current_level
 			var B = base
@@ -76,16 +79,17 @@ func setup(data, current_level: int, multiplier: int = 1):
 	else:
 		var txt = ""
 		if purchase_amount > 1:
-			txt += "%dx " % purchase_amount
+			txt += "%dx | " % purchase_amount
 
 		if currency == "diamonds":
-			cost_label.text = txt + "%d" % current_cost
+			cost_label.text = txt + "%s" % Utils.format_currency(current_cost)
 			icon_rect.texture = preload("res://assets/icon_diamond.svg")
 			icon_rect.visible = true
 			cost_label.add_theme_color_override("font_color", Color(0.26, 0.8, 1))
 		else:
-			cost_label.text = txt + "%d g" % current_cost
-			icon_rect.visible = false
+			cost_label.text = txt + "%s" % Utils.format_currency(current_cost)
+			icon_rect.texture = preload("res://assets/icon_gold.svg")
+			icon_rect.visible = true
 			cost_label.add_theme_color_override("font_color", Color(1, 1, 0.6))
 	
 func update_state(player_currency: int):
