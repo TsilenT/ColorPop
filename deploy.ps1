@@ -10,7 +10,7 @@ else {
 if (-not $ITCH_USER) { $ITCH_USER = "sihl" }
 $ITCH_GAME = "colorpop"
 $CHANNEL = "html5"
-if (-not $GODOT_PATH) { $GODOT_PATH = "C:\Users\sihl\Desktop\Godot_v4.3-stable_win64_console.exe" }
+if (-not $GODOT_PATH) { $GODOT_PATH = "C:\Program Files\godot\godot_console.exe" }
 if (-not $BUTLER_PATH) { $BUTLER_PATH = "C:\Program Files\butler\butler.exe" }
 
 Write-Host "Using Godot Path: $GODOT_PATH" -ForegroundColor Gray
