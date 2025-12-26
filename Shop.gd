@@ -15,7 +15,7 @@ signal upgrade_purchased(key: String, cost: float)
 	1: $Panel/MultiplierContainer/Mult1x,
 	10: $Panel/MultiplierContainer/Mult10x,
 	100: $Panel/MultiplierContainer/Mult100x,
-	1000: $Panel/MultiplierContainer/Mult1000x
+	-1: $Panel/MultiplierContainer/Mult1000x
 }
 
 var level_manager = null
@@ -63,6 +63,9 @@ func _ready():
 			mult_btns[m].mouse_entered.connect(func(): if sound_manager: sound_manager.play_tone(500, 0.02)) # Optional hover sound
 			mult_btns[m].pressed.connect(_on_multiplier_pressed.bind(m))
 			mult_btns[m].focus_mode = Control.FOCUS_NONE
+	
+	if mult_btns.has(-1):
+		mult_btns[-1].text = "MAX"
 
 	if gold_tab: gold_tab.focus_mode = Control.FOCUS_NONE
 	if diam_tab: diam_tab.focus_mode = Control.FOCUS_NONE
@@ -150,7 +153,7 @@ func refresh_ui():
 		grid_container.add_child(card)
 		
 		var lvl = level_manager.save_manager.get_upgrade_level(up["id"])
-		card.setup(up, lvl, purchase_multiplier)
+		card.setup(up, lvl, purchase_multiplier, currency_amount)
 		card.update_state(currency_amount)
 		
 		# Connect signal

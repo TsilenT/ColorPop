@@ -15,24 +15,60 @@ var current_cost: float
 var is_maxed: bool = false
 var purchase_amount: int = 1
 
-func setup(data, current_level: int, multiplier: int = 1):
+# Helper for Quadratic Calculation
+# n^2 + (3 + 2L)n - (4 * Cost / B) = 0
+func _calculate_max_buy(available_gold: float, L: float, B: float) -> int:
+	if B == 0: return 999999
+	var c_term = - (4.0 * available_gold) / B
+	var b_term = 3.0 + (2.0 * L)
+	
+	# Quadratic Formula: (-b + sqrt(b^2 - 4ac)) / 2a
+	# a = 1
+	var discriminant = (b_term * b_term) - (4.0 * 1.0 * c_term)
+	if discriminant < 0: return 0
+	
+	var n = (-b_term + sqrt(discriminant)) / 2.0
+	return int(floor(n))
+
+func setup(data, current_level: int, multiplier: int = 1, currency_available: float = 0.0):
 	upgrade_id = data["id"]
 	name_label.text = data["name"]
 	desc_label.text = data["desc"]
+	
+	var base = data["base_cost"]
 	
 	# Check Max
 	var max_lvl = data.get("max", -1)
 	is_maxed = (max_lvl != -1 and current_level >= max_lvl)
 	
+	buy_button.disabled = false
+	buy_button.modulate = Color(1, 1, 1)
+
 	# Calculate actual amount to buy (clamp to max)
 	purchase_amount = multiplier
+	
+	# Handle MAX Mode
+	if multiplier == -1:
+		if upgrade_id.begins_with("exchange_"):
+			# Linear cost: Cost = n * Base
+			if base > 0:
+				purchase_amount = int(floor(currency_available / base))
+			else:
+				purchase_amount = 999
+		else:
+			# Quadratic cost
+			purchase_amount = _calculate_max_buy(currency_available, current_level, base)
+		
+		# Ensure at least 1 is shown (even if unaffordable) to show NEXT step cost
+		if purchase_amount < 1: purchase_amount = 1
+		
+	# Clamp to Max Level
 	if max_lvl != -1 and not is_maxed:
 		var remaining = max_lvl - current_level
 		if purchase_amount > remaining:
 			purchase_amount = remaining
-
+			
 	# Cost Formatting
-	var base = data["base_cost"]
 	if is_maxed:
 		current_cost = 0
 	else:
@@ -62,8 +98,8 @@ func setup(data, current_level: int, multiplier: int = 1):
 		lvl_label.visible = false
 	else:
 		lvl_label.visible = true
-		lvl_label.text = "Lvl %d" % current_level
-		if max_lvl != -1: lvl_label.text += " / %d" % max_lvl
+		lvl_label.text = "Lvl %s" % Utils.format_currency(current_level, 1000000.0)
+		if max_lvl != -1: lvl_label.text += " / %s" % Utils.format_currency(max_lvl, 1000000.0)
 	
 	buy_button.pressed.connect(_on_buy_pressed)
 	
