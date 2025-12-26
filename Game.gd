@@ -448,7 +448,7 @@ func process_match_group(group: Array):
 			# Assuming they have a score value defined in LevelManager (usually negative)
 			# Show the score text specifically for Black
 			if fx_enabled:
-				spawn_floating_text(center_pos, "%d" % int(match_score), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
+				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
 			
 		if type == Tile.Type.GREEN:
 			green_matched_this_turn = true
@@ -469,7 +469,7 @@ func process_match_group(group: Array):
 				var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
-			add_log("Matched %d BLUE! Mana +%d" % [match_count, int(gain)])
+			add_log("Matched %d BLUE! +%d Mana" % [match_count, int(gain)])
 			if fx_enabled:
 				spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE, 1.0, Color.WHITE)
 
@@ -498,13 +498,13 @@ func process_match_group(group: Array):
 		# FX: Main Score Text (Skip for Black since we handled it above specially, OR ensure we don't double dip)
 		if match_score != 0 and type != Tile.Type.BLACK: # Black uses special negative formatting above
 			var txt_color = TILE_COLORS.get(type, Color.WHITE)
-			var display_score = match_score
-			var prefix = "+"
-			if match_score < 0: prefix = "" # formatted automatically? %d with negative shows -
-			spawn_floating_text(center_pos, "%+d" % int(match_score), txt_color, 1.2)
+			if match_score < 0:
+				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score), txt_color, 1.2)
+			else:
+				spawn_floating_text(center_pos, "+%s" % Utils.format_currency(match_score), txt_color, 1.2)
 	
 	if match_score != 0:
-		var log_msg = "Matched %d %s! Pts: %d" % [match_count, type_name, int(match_score)]
+		var log_msg = "Matched %d %s! Pts: %s" % [match_count, type_name, Utils.format_currency(match_score)]
 		if diamond_count > 0:
 			log_msg += "\n(Diamond Bonus: x%d! +%d Diamond)" % [int(diamond_mult), diamond_count]
 		add_log(log_msg)
@@ -759,7 +759,7 @@ func restart_full_game():
 func update_ui():
 	if level_label and level_manager: level_label.text = "Level: %d" % level_manager.current_level
 	if score_text and level_manager:
-		score_text.text = "%d / %d" % [int(score), level_manager.get_current_target()]
+		score_text.text = "%s / %s" % [Utils.format_currency(score, 1000000000.0), Utils.format_currency(level_manager.get_current_target(), 1000000000.0)]
 	if score_bar: score_bar.value = score
 	if turns_label: turns_label.text = "Turns: %d" % turns
 	if multi_label: multi_label.text = "Multiplier: %.2fx" % multiplier

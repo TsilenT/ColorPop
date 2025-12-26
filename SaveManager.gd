@@ -4,7 +4,7 @@ extends Node
 const SAVE_PATH = "user://savegame.json"
 
 var data = {
-	"gold": 0,
+	"gold": 0.0,
 	"upgrades": {
 		"mana_cap": 0,
 		"spell_cost": 0,
@@ -25,7 +25,7 @@ var data = {
 		"music_volume": 0.5,
 		"difficulty": "normal"
 	},
-	"diamonds": 0,
+	"diamonds": 0.0,
 	"stats": {
 		"highest_level": 1
 	}
@@ -51,8 +51,8 @@ func load_game():
 		if json.parse(content) == OK:
 			var loaded_data = json.data
 			# Merge loaded data with defaults to handle missing keys
-			if "gold" in loaded_data: data["gold"] = int(loaded_data["gold"])
-			if "diamonds" in loaded_data: data["diamonds"] = int(loaded_data["diamonds"])
+			if "gold" in loaded_data: data["gold"] = float(loaded_data["gold"])
+			if "diamonds" in loaded_data: data["diamonds"] = float(loaded_data["diamonds"])
 			
 			# Merge Upgrades
 			if "upgrades" in loaded_data:
@@ -70,30 +70,30 @@ func load_game():
 					if not "stats" in data: data["stats"] = {}
 					data["stats"][k] = loaded_data["stats"][k]
 
-func get_gold() -> int:
+func get_gold() -> float:
 	return data["gold"]
 
-func add_gold(amount: int):
+func add_gold(amount: float):
 	data["gold"] += amount
 	save_game()
 
-func get_diamonds() -> int:
-	return data.get("diamonds", 0)
+func get_diamonds() -> float:
+	return data.get("diamonds", 0.0)
 
-func add_diamonds(amount: int):
+func add_diamonds(amount: float):
 	if not "diamonds" in data: data["diamonds"] = 0
 	data["diamonds"] += amount
 	save_game()
 
-func spend_gold(amount: int) -> bool:
+func spend_gold(amount: float) -> bool:
 	if data["gold"] >= amount:
 		data["gold"] -= amount
 		save_game()
 		return true
 	return false
 
-func spend_diamonds(amount: int) -> bool:
-	if not "diamonds" in data: data["diamonds"] = 0
+func spend_diamonds(amount: float) -> bool:
+	if not "diamonds" in data: data["diamonds"] = 0.0
 	if data["diamonds"] >= amount:
 		data["diamonds"] -= amount
 		save_game()

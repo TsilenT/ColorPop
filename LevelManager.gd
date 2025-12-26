@@ -51,13 +51,14 @@ func get_score_text(score: int) -> String:
 	elif score == SCORE_HIGH: return "HIGH"
 	return str(score)
 
-func get_current_target() -> int:
-	return (current_level * 5000) * (1.05 ** (current_level - 1))
+func get_current_target() -> float:
+	# Ensure result is float. power operator usually returns float, but safety first.
+	return float((current_level * 5000) * (1.05 ** (current_level - 1)))
 
 func get_tile_score(type: Tile.Type) -> int:
 	return tile_scores.get(type, 0)
 
-func complete_level(final_score: int, turns_left: int) -> Dictionary:
+func complete_level(final_score: float, turns_left: int) -> Dictionary:
 	# Gold: 2% of Score * Difficulty Multiplier
 	var difficulty = save_manager.get_setting("difficulty", "normal")
 	var diff_mult = 2.0 # Normal default (2x existing)
@@ -67,11 +68,11 @@ func complete_level(final_score: int, turns_left: int) -> Dictionary:
 	elif difficulty == "easy":
 		diff_mult = 4.0 # 4x
 		
-	var gold_reward = int(final_score * 0.02 * diff_mult)
+	var gold_reward: float = final_score * 0.02 * diff_mult
 	
 	# Diamonds: 0.5 * Level * Turns
-	var base_diamonds = floor(turns_left * 0.5 * current_level)
-	var diam_reward = int(base_diamonds)
+	var base_diamonds: float = floor(turns_left * 0.5 * current_level)
+	var diam_reward: float = base_diamonds
 	
 	save_manager.add_gold(gold_reward)
 	save_manager.add_diamonds(diam_reward)
@@ -87,7 +88,7 @@ func get_black_tile_score() -> int:
 	return -50 - (current_level * 50)
 
 
-func purchase_upgrade(key: String, cost: int, currency: String = "gold", amount: int = 1) -> bool:
+func purchase_upgrade(key: String, cost: float, currency: String = "gold", amount: int = 1) -> bool:
 	if currency == "diamonds":
 		if save_manager.spend_diamonds(cost):
 			save_manager.increment_upgrade(key, amount)

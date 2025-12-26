@@ -8,25 +8,25 @@ signal continued
 @onready var diam_reward = $CenterContainer/VBox/DiamondReward/Value
 @onready var cont_label = $CenterContainer/VBox/ContinueLabel
 
-var current_score: int
+var current_score: float
 var current_turns: int
-var target_gold: int
-var target_diam: int
+var target_gold: float
+var target_diam: float
 
 var sound_manager: SoundManager
 # Track previous integer values to trigger sounds on change
-var _last_gold_tick: int = -1
-var _last_diam_tick: int = -1
+var _last_gold_tick: float = -1.0
+var _last_diam_tick: float = -1.0
 
 var tween: Tween
 var animation_finished: bool = false
 
-func setup(rewards: Dictionary, final_score: int, turns_left: int, sound_mgr: SoundManager = null):
+func setup(rewards: Dictionary, final_score: float, turns_left: int, sound_mgr: SoundManager = null):
 	# Initial State
 	current_score = final_score
 	current_turns = turns_left
-	target_gold = rewards.get("gold", 0)
-	target_diam = rewards.get("diamonds", 0)
+	target_gold = float(rewards.get("gold", 0))
+	target_diam = float(rewards.get("diamonds", 0))
 	sound_manager = sound_mgr
 	
 	score_val.text = str(current_score)
@@ -43,24 +43,24 @@ func start_animation():
 	if tween: tween.kill()
 	tween = create_tween()
 	
-	_last_gold_tick = 0
-	_last_diam_tick = 0
+	_last_gold_tick = 0.0
+	_last_diam_tick = 0.0
 	
 	# Phase 1: Score -> Gold (1.5s)
 	tween.tween_method(func(v):
-		score_val.text = str(int(v))
-	, current_score, 0, 1.5)
+		score_val.text = Utils.format_currency(v, 1000000000.0)
+	, current_score, 0.0, 1.5)
 	
 	tween.parallel().tween_method(func(v):
-		var val = int(v)
-		gold_reward.text = "+%d Gold" % val
+		var val = v
+		gold_reward.text = "+%s Gold" % Utils.format_currency(val, 1000000000.0)
 		if val > _last_gold_tick:
 			_last_gold_tick = val
-			if sound_manager and val % 2 == 0:
+			if sound_manager and int(val) % 2 == 0:
 				sound_manager.play_gold_tick()
 			elif sound_manager and target_gold < 20:
 				sound_manager.play_gold_tick()
-	, 0, target_gold, 1.5)
+	, 0.0, target_gold, 1.5)
 	
 	# Phase 2: Turns -> Diamonds (1.0s)
 	tween.tween_method(func(v):
@@ -69,7 +69,7 @@ func start_animation():
 	
 	tween.parallel().tween_method(func(v):
 		var val = int(v)
-		diam_reward.text = "+%d" % val
+		diam_reward.text = "+%s" % Utils.format_currency(val, 1000000000.0)
 		
 		var diff = val - _last_diam_tick
 		if diff > 0:
@@ -88,9 +88,9 @@ func skip_animation():
 	
 	# Snap to final values
 	score_val.text = "0"
-	gold_reward.text = "+%d Gold" % target_gold
+	gold_reward.text = "+%s Gold" % Utils.format_currency(target_gold, 1000000000.0)
 	turns_val.text = "0"
-	diam_reward.text = "+%d" % target_diam
+	diam_reward.text = "+%s" % Utils.format_currency(target_diam, 1000000000.0)
 	cont_label.modulate.a = 1.0
 	
 	# Play a finish sound?

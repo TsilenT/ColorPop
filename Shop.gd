@@ -2,7 +2,7 @@ class_name Shop
 extends CanvasLayer
 
 signal close_requested
-signal upgrade_purchased(key: String, cost: int)
+signal upgrade_purchased(key: String, cost: float)
 
 @onready var grid_container: GridContainer = $Panel/ScrollContainer/GridContainer
 @onready var gold_label: Label = $Panel/GoldLabel
@@ -166,7 +166,7 @@ func _on_multiplier_pressed(m: int):
 	purchase_multiplier = m
 	refresh_ui()
 
-func _on_buy_pressed(key: String, cost: int, amount: int = 1):
+func _on_buy_pressed(key: String, cost: float, amount: int = 1):
 	if level_manager:
 		# Handle Exchange Items (Special Case)
 		if key.begins_with("exchange_"):

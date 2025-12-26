@@ -1,7 +1,7 @@
 class_name UpgradeCard
 extends PanelContainer
 
-signal buy_pressed(id: String, cost: int, amount: int)
+signal buy_pressed(id: String, cost: float, amount: int)
 
 @onready var name_label: Label = $VBox/NameLabel
 @onready var desc_label: Label = $VBox/DescLabel
@@ -11,7 +11,7 @@ signal buy_pressed(id: String, cost: int, amount: int)
 @onready var icon_rect: TextureRect = $VBox/BuyButton/Content/IconRect
 
 var upgrade_id: String
-var current_cost: int
+var current_cost: float
 var is_maxed: bool = false
 var purchase_amount: int = 1
 
@@ -56,7 +56,7 @@ func setup(data, current_level: int, multiplier: int = 1):
 			var base_term = n * B
 			var scale_term = (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
 
-			current_cost = int(base_term + scale_term)
+			current_cost = float(base_term + scale_term)
 	
 	if data.get("hide_level", false):
 		lvl_label.visible = false
@@ -92,7 +92,7 @@ func setup(data, current_level: int, multiplier: int = 1):
 			icon_rect.visible = true
 			cost_label.add_theme_color_override("font_color", Color(1, 1, 0.6))
 	
-func update_state(player_currency: int):
+func update_state(player_currency: float):
 	if is_maxed:
 		buy_button.disabled = true
 		buy_button.modulate = Color(0.7, 0.7, 0.7)
