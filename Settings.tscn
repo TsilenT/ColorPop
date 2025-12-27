@@ -83,6 +83,11 @@ text = "Highlight Valid Moves"
 layout_mode = 2
 text = "Visual Effects"
 
+[node name="AutoMatchToggle" type="CheckButton" parent="Panel/VBoxContainer"]
+visible = false
+layout_mode = 2
+text = "Auto Match"
+
 [node name="HSeparator" type="HSeparator" parent="Panel/VBoxContainer"]
 layout_mode = 2
 
