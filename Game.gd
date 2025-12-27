@@ -829,17 +829,22 @@ func check_game_over():
 		# Calculate and Save Rewards
 		var rewards = level_manager.complete_level(score, turns_left)
 		
+		# Calculate Skips
+		var excess = score - level_manager.get_current_target()
+		var skips = level_manager.calculate_level_skips(excess)
+		var next_lvl = level_manager.current_level + 1 + skips
+
 		# Show Screen
 		var complete_scn = preload("res://LevelComplete.tscn").instantiate()
 		complete_scn.name = "LevelComplete"
 		ui_container.add_child(complete_scn)
-		complete_scn.setup(rewards, score, turns_left, sound_manager)
+		complete_scn.setup(rewards, score, turns_left, level_manager.current_level, next_lvl, sound_manager)
 		
 		# Lock Board Input
 		input_handler.set_state(InputHandler.State.LOCKED)
 		
 		complete_scn.continued.connect(func():
-			level_manager.advance_level()
+			level_manager.advance_level(1 + skips)
 			complete_scn.queue_free()
 			start_next_level()
 		)
@@ -849,7 +854,7 @@ func check_game_over():
 				if not is_instance_valid(complete_scn): return
 				get_tree().create_timer(5.0, false).timeout.connect(func():
 					if is_instance_valid(complete_scn) and ui_container.has_node("LevelComplete"):
-						level_manager.advance_level()
+						level_manager.advance_level(1 + skips)
 						complete_scn.queue_free()
 						start_next_level()
 				)

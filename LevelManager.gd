@@ -51,9 +51,10 @@ func get_score_text(score: int) -> String:
 	elif score == SCORE_HIGH: return "HIGH"
 	return str(score)
 
-func get_current_target() -> float:
+func get_current_target(level_idx: int = -1) -> float:
+	if level_idx == -1: level_idx = current_level
 	# Ensure result is float. power operator usually returns float, but safety first.
-	return float((current_level * 5000) * (1.05 ** (current_level - 1)))
+	return float((level_idx * 5000) * (1.05 ** (level_idx - 1)))
 
 func get_tile_score(type: Tile.Type) -> int:
 	return tile_scores.get(type, 0)
@@ -79,9 +80,25 @@ func complete_level(final_score: float, turns_left: int) -> Dictionary:
 	
 	return {"gold": gold_reward, "diamonds": diam_reward}
 
-func advance_level():
-	current_level += 1
+func advance_level(amount: int = 1):
+	current_level += amount
 	randomize_tile_scores()
+
+func calculate_level_skips(excess_score: float) -> int:
+	var skips = 0
+	var check_level = current_level + 1
+	var remaining_excess = excess_score
+
+	while true:
+		var target = get_current_target(check_level)
+		if remaining_excess >= target:
+			skips += 1
+			remaining_excess -= target
+			check_level += 1
+		else:
+			break
+
+	return skips
 
 func get_black_tile_score() -> int:
 	# Base -50, scales by -50 per level
