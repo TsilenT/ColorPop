@@ -3,6 +3,7 @@ extends Control
 signal continued
 signal animation_completed
 
+@onready var level_val = $CenterContainer/VBox/StatsContainer/LevelValue
 @onready var score_val = $CenterContainer/VBox/StatsContainer/ScoreValue
 @onready var turns_val = $CenterContainer/VBox/StatsContainer/TurnsValue
 @onready var gold_reward = $CenterContainer/VBox/GoldReward
@@ -11,6 +12,8 @@ signal animation_completed
 
 var current_score: float
 var current_turns: int
+var start_level: int
+var end_level: int
 var target_gold: float
 var target_diam: float
 
@@ -22,14 +25,17 @@ var _last_diam_tick: float = -1.0
 var tween: Tween
 var animation_finished: bool = false
 
-func setup(rewards: Dictionary, final_score: float, turns_left: int, sound_mgr: SoundManager = null):
+func setup(rewards: Dictionary, final_score: float, turns_left: int, start_lvl: int, end_lvl: int, sound_mgr: SoundManager = null):
 	# Initial State
 	current_score = final_score
 	current_turns = turns_left
+	start_level = start_lvl
+	end_level = end_lvl
 	target_gold = float(rewards.get("gold", 0))
 	target_diam = float(rewards.get("diamonds", 0))
 	sound_manager = sound_mgr
 	
+	level_val.text = str(start_level)
 	score_val.text = str(current_score)
 	turns_val.text = str(current_turns)
 	gold_reward.text = "+0 Gold"
@@ -52,6 +58,12 @@ func start_animation():
 		score_val.text = Utils.format_currency(v, 1000000000.0)
 	, current_score, 0.0, 1.5)
 	
+	# Animate Level Skip parallel to Gold if skipping
+	if end_level > start_level:
+		tween.parallel().tween_method(func(v):
+			level_val.text = str(int(v))
+		, float(start_level), float(end_level), 1.5)
+
 	tween.parallel().tween_method(func(v):
 		var val = v
 		gold_reward.text = "+%s Gold" % Utils.format_currency(val, 1000000000.0)
@@ -91,6 +103,7 @@ func skip_animation():
 	if tween: tween.kill()
 	
 	# Snap to final values
+	level_val.text = str(end_level)
 	score_val.text = "0"
 	gold_reward.text = "+%s Gold" % Utils.format_currency(target_gold, 1000000000.0)
 	turns_val.text = "0"
