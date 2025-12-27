@@ -46,6 +46,7 @@ var multiplier: float = 1.0
 var mana: float = 0
 var green_matched_this_turn: bool = false
 var input_locked: bool = false # Processing flag
+var auto_match_timer: float = 0.0
 
 # Legend UI
 var legend_labels: Dictionary = {}
@@ -77,7 +78,145 @@ func _process(delta):
 				randf_range(-shake_strength, shake_strength),
 				randf_range(-shake_strength, shake_strength)
 			)
+
+	# Relax / Auto Match Logic
+	if level_manager and level_manager.save_manager:
+		var relax_level = level_manager.save_manager.get_upgrade_level("relax")
+		var auto_enabled = level_manager.save_manager.get_setting("auto_match_enabled", true)
+
+		if relax_level > 0 and auto_enabled:
+			auto_match_timer += delta
+			if auto_match_timer >= 0.5:
+				auto_match_timer = 0.0
+				if not input_locked and turns > 0 and not ui_container.has_node("LevelComplete") and not ui_container.has_node("GameOver"):
+					perform_auto_match()
+
+func perform_auto_match():
+	# 1. Simulate Moves
+	var best_move_start = Vector2i(-1, -1)
+	var best_move_end = Vector2i(-1, -1)
+
+	var best_green_size = -1
+	var best_score = -1.0
+
+	# Create a lightweight virtual board representation for simulation
+	# We just need types.
+	var virtual_board = []
+	for r in range(ROWS):
+		var row = []
+		for c in range(COLS):
+			var t = board_manager.get_tile(r, c)
+			if t: row.append(t) # Storing references for MatchUtils compatibility
+			else: row.append(null)
+		virtual_board.append(row)
+
+	# Check all adjacent swaps (4 directions) to be safe
+	var directions = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
+
+	for r in range(ROWS):
+		for c in range(COLS):
+			var start = Vector2i(r, c)
+			for d in directions:
+				var end = start + d
+				if board_manager.is_valid_coord(end):
+					var res = _evaluate_move(virtual_board, start, end)
+					if res.valid:
+						# Priority Logic: Green Size > Score
+						if res.green_size > best_green_size:
+							best_green_size = res.green_size
+							best_score = res.score
+							best_move_start = start
+							best_move_end = end
+						elif res.green_size == best_green_size:
+							if res.score > best_score:
+								best_score = res.score
+								best_move_start = start
+								best_move_end = end
+
+	if best_move_start != Vector2i(-1, -1):
+		attempt_move(best_move_start, best_move_end)
+
+func _evaluate_move(v_board: Array, start: Vector2i, end: Vector2i) -> Dictionary:
+	var result = {"valid": false, "green_size": 0, "score": 0.0}
+
+	var t1 = v_board[start.x][start.y]
+	var t2 = v_board[end.x][end.y]
+
+	if not t1 or not t2: return result
+
+	# Swap
+	v_board[start.x][start.y] = t2
+	v_board[end.x][end.y] = t1
+
+	var matches = MatchUtils.find_matches(v_board, ROWS, COLS)
+	if not matches.is_empty():
+		result.valid = true
+		var groups = MatchUtils.get_match_groups(matches, v_board, ROWS, COLS)
+
+		var max_green = 0
+		var total_score = 0.0
+
+		for group in groups:
+			if group.is_empty(): continue
+
+			var match_count = group.size()
+
+			# Analyze Group
+			var type = Tile.Type.DIAMOND
+			var has_concrete_type = false
+			for t in group:
+				if t.tile_type != Tile.Type.DIAMOND:
+					type = t.tile_type
+					has_concrete_type = true
+					break
+
+			# Priority 1: Green
+			if has_concrete_type and type == Tile.Type.GREEN:
+				if match_count > max_green: max_green = match_count
+
+			# Priority 2: Precise Score Calculation
+			var base_score = 10
+			if level_manager: base_score = level_manager.get_tile_score(type)
+
+			var efficiency = max(1.0, (1.25) ** (match_count - 3))
+			var group_upgrade_mult = 1.0
+
+			if has_concrete_type:
+				var t_key = get_upgrade_key(type)
+				if t_key != "" and level_manager:
+					var t_level = level_manager.save_manager.get_upgrade_level(t_key)
+					group_upgrade_mult = (1.0 + (t_level * 0.1))
 			
+			var diamond_count = 0
+			for t in group:
+				if t.tile_type == Tile.Type.DIAMOND:
+					diamond_count += 1
+
+			var diamond_mult = 1.0
+			if diamond_count > 0:
+				diamond_mult = pow(2, diamond_count)
+
+			var group_score = 0.0
+			for t in group:
+				var tile_pts = 0.0
+				if not has_concrete_type:
+					tile_pts = 300 # All Diamonds?
+				else:
+					tile_pts = base_score * multiplier * efficiency * group_upgrade_mult
+				group_score += tile_pts
+
+			group_score *= diamond_mult
+			total_score += group_score
+
+		result.green_size = max_green
+		result.score = total_score
+
+	# Revert Swap
+	v_board[start.x][start.y] = t1
+	v_board[end.x][end.y] = t2
+
+	return result
+
 func setup_camera():
 	game_camera = Camera2D.new()
 	game_camera.anchor_mode = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
