@@ -1,6 +1,7 @@
 extends Control
 
 signal continued
+signal animation_completed
 
 @onready var score_val = $CenterContainer/VBox/StatsContainer/ScoreValue
 @onready var turns_val = $CenterContainer/VBox/StatsContainer/TurnsValue
@@ -81,7 +82,10 @@ func start_animation():
 	
 	# End: Show Continue
 	tween.tween_property(cont_label, "modulate:a", 1.0, 0.5)
-	tween.tween_callback(func(): animation_finished = true)
+	tween.tween_callback(func():
+		animation_finished = true
+		emit_signal("animation_completed")
+	)
 
 func skip_animation():
 	if tween: tween.kill()
@@ -100,6 +104,7 @@ func skip_animation():
 	# This prevents double-events (Touch + Mouse Emulation) from skipping AND dismissing in one frame
 	await get_tree().create_timer(0.3).timeout
 	animation_finished = true
+	emit_signal("animation_completed")
 
 func _ready():
 	set_process_input(false)

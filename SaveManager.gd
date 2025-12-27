@@ -16,11 +16,13 @@ var data = {
 		"mult_orange": 0,
 		"harvest": 0,
 		"columns": 0,
-		"cinderella": 0
+		"cinderella": 0,
+		"relax": 0
 	},
 	"settings": {
 		"highlight_enabled": true,
 		"visual_effects_enabled": true,
+		"auto_match_enabled": true,
 		"sfx_volume": 0.5,
 		"music_volume": 0.5,
 		"difficulty": "normal"

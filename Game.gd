@@ -46,6 +46,7 @@ var multiplier: float = 1.0
 var mana: float = 0
 var green_matched_this_turn: bool = false
 var input_locked: bool = false # Processing flag
+var auto_match_timer: float = 0.0
 
 # Legend UI
 var legend_labels: Dictionary = {}
@@ -69,6 +70,12 @@ const TILE_COLORS = {
 #endregion
 
 
+func is_relax_active() -> bool:
+	if not level_manager or not level_manager.save_manager: return false
+	var relax_level = level_manager.save_manager.get_upgrade_level("relax")
+	var auto = level_manager.save_manager.get_setting("auto_match_enabled", true)
+	return relax_level > 0 and auto
+
 func _process(delta):
 	if shake_strength > 0:
 		shake_strength = lerp(shake_strength, 0.0, shake_decay * delta)
@@ -77,7 +84,122 @@ func _process(delta):
 				randf_range(-shake_strength, shake_strength),
 				randf_range(-shake_strength, shake_strength)
 			)
+
+	# Relax / Auto Match Logic
+	if level_manager and level_manager.save_manager:
+		var relax_level = level_manager.save_manager.get_upgrade_level("relax")
+		var auto_enabled = level_manager.save_manager.get_setting("auto_match_enabled", true)
+
+		if relax_level > 0 and auto_enabled:
+			auto_match_timer += delta
+			if auto_match_timer >= 0.5:
+				auto_match_timer = 0.0
+				if not input_locked and turns > 0 and not ui_container.has_node("LevelComplete") and not ui_container.has_node("GameOver"):
+					perform_auto_match()
+
+func perform_auto_match():
+	# 1. Simulate Moves
+	var best_move_start = Vector2i(-1, -1)
+	var best_move_end = Vector2i(-1, -1)
+
+	var best_green_size = -1
+	var best_score = -1.0
+
+	# Create a lightweight virtual board representation for simulation
+	# We just need types.
+	var virtual_board: Array[Array] = []
+	for r in range(ROWS):
+		var row = []
+		for c in range(COLS):
+			var t = board_manager.get_tile(r, c)
+			if t: row.append(t) # Storing references for MatchUtils compatibility
+			else: row.append(null)
+		virtual_board.append(row)
+
+	for r in range(ROWS):
+		for c in range(COLS):
+			# Right
+			if c < COLS - 1:
+				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r, c + 1))
+				if res.valid:
+					if res.green_size > best_green_size:
+						best_green_size = res.green_size
+						best_score = res.score
+						best_move_start = Vector2i(r, c)
+						best_move_end = Vector2i(r, c + 1)
+					elif res.green_size == best_green_size:
+						if res.score > best_score:
+							best_score = res.score
+							best_move_start = Vector2i(r, c)
+							best_move_end = Vector2i(r, c + 1)
 			
+			# Down
+			if r < ROWS - 1:
+				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r + 1, c))
+				if res.valid:
+					if res.green_size > best_green_size:
+						best_green_size = res.green_size
+						best_score = res.score
+						best_move_start = Vector2i(r, c)
+						best_move_end = Vector2i(r + 1, c)
+
+	if best_move_start != Vector2i(-1, -1):
+		attempt_move(best_move_start, best_move_end)
+
+func _evaluate_move(v_board: Array[Array], start: Vector2i, end: Vector2i) -> Dictionary:
+	var result = {"valid": false, "green_size": 0, "score": 0.0}
+
+	var t1 = v_board[start.x][start.y]
+	var t2 = v_board[end.x][end.y]
+
+	if not t1 or not t2: return result
+
+	# Swap
+	v_board[start.x][start.y] = t2
+	v_board[end.x][end.y] = t1
+
+	var matches = MatchUtils.find_matches(v_board, ROWS, COLS)
+	if not matches.is_empty():
+		result.valid = true
+		var groups = MatchUtils.get_match_groups(matches, v_board, ROWS, COLS)
+
+		var max_green = 0
+		var total_score = 0.0
+
+		for group in groups:
+			if group.is_empty(): continue
+
+			# Analyze Group
+			var type = Tile.Type.DIAMOND
+			var has_concrete = false
+			for t in group:
+				if t.tile_type != Tile.Type.DIAMOND:
+					type = t.tile_type
+					has_concrete = true
+					break
+
+			var size = group.size()
+
+			# Priority 1: Green
+			if has_concrete and type == Tile.Type.GREEN:
+				if size > max_green: max_green = size
+
+			# Priority 2: Score (Approx)
+			var base_score = 10
+			if level_manager: base_score = level_manager.get_tile_score(type)
+
+			# Just sum base scores for estimation
+			total_score += (base_score * size)
+
+		result.green_size = max_green
+		result.score = total_score
+
+	# Revert Swap
+	v_board[start.x][start.y] = t1
+	v_board[end.x][end.y] = t2
+
+	return result
+
 func setup_camera():
 	game_camera = Camera2D.new()
 	game_camera.anchor_mode = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
@@ -328,7 +450,8 @@ func attempt_move(start: Vector2i, end: Vector2i):
 		input_handler.set_state(InputHandler.State.IDLE)
 	else:
 		# Valid Move
-		turns -= 1
+		if not is_relax_active():
+			turns -= 1
 		green_matched_this_turn = false
 		
 		await get_tree().create_timer(0.3).timeout
@@ -720,6 +843,17 @@ func check_game_over():
 			complete_scn.queue_free()
 			start_next_level()
 		)
+
+		if is_relax_active():
+			complete_scn.animation_completed.connect(func():
+				if not is_instance_valid(complete_scn): return
+				get_tree().create_timer(5.0, false).timeout.connect(func():
+					if is_instance_valid(complete_scn) and ui_container.has_node("LevelComplete"):
+						level_manager.advance_level()
+						complete_scn.queue_free()
+						start_next_level()
+				)
+			)
 		
 	elif turns <= 0:
 		# Game Over Logic

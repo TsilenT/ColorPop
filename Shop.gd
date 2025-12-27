@@ -47,6 +47,16 @@ const EXCHANGE_ITEMS = [
 	{"id": "exchange_100", "name": "Gold Sack", "base_cost": 100, "desc": "500 Gold", "currency": "diamonds", "hide_level": true, "max": - 1}
 ]
 
+const RELAX_ITEM = {
+	"id": "relax",
+	"name": "Relax",
+	"base_cost": 1000000,
+	"desc": "It's time to stop playing. Let AI do it for you!",
+	"max": 1,
+	"currency": "diamonds",
+	"hide_level": true
+}
+
 func _ready():
 	if close_btn:
 		close_btn.pressed.connect(func():
@@ -141,6 +151,11 @@ func refresh_ui():
 		list = diamond_upgrades.duplicate()
 		currency_amount = level_manager.save_manager.get_diamonds()
 		
+		# "Relax" Upgrade Logic (Hidden unless 1M diamonds or owned)
+		var relax_level = level_manager.save_manager.get_upgrade_level("relax")
+		if currency_amount >= 1000000 or relax_level > 0:
+			list.append(RELAX_ITEM)
+
 		# Check for Maxed Out Shop
 		if are_all_diamond_upgrades_maxed():
 			list.append_array(EXCHANGE_ITEMS)
