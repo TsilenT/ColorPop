@@ -70,6 +70,12 @@ const TILE_COLORS = {
 #endregion
 
 
+func is_relax_active() -> bool:
+	if not level_manager or not level_manager.save_manager: return false
+	var relax_level = level_manager.save_manager.get_upgrade_level("relax")
+	var auto = level_manager.save_manager.get_setting("auto_match_enabled", true)
+	return relax_level > 0 and auto
+
 func _process(delta):
 	if shake_strength > 0:
 		shake_strength = lerp(shake_strength, 0.0, shake_decay * delta)
@@ -101,7 +107,7 @@ func perform_auto_match():
 
 	# Create a lightweight virtual board representation for simulation
 	# We just need types.
-	var virtual_board = []
+	var virtual_board: Array[Array] = []
 	for r in range(ROWS):
 		var row = []
 		for c in range(COLS):
@@ -114,33 +120,33 @@ func perform_auto_match():
 		for c in range(COLS):
 			# Right
 			if c < COLS - 1:
-				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r, c+1))
+				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r, c + 1))
 				if res.valid:
 					if res.green_size > best_green_size:
 						best_green_size = res.green_size
 						best_score = res.score
 						best_move_start = Vector2i(r, c)
-						best_move_end = Vector2i(r, c+1)
+						best_move_end = Vector2i(r, c + 1)
 					elif res.green_size == best_green_size:
 						if res.score > best_score:
 							best_score = res.score
 							best_move_start = Vector2i(r, c)
-							best_move_end = Vector2i(r, c+1)
+							best_move_end = Vector2i(r, c + 1)
 			
 			# Down
 			if r < ROWS - 1:
-				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r+1, c))
+				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r + 1, c))
 				if res.valid:
 					if res.green_size > best_green_size:
 						best_green_size = res.green_size
 						best_score = res.score
 						best_move_start = Vector2i(r, c)
-						best_move_end = Vector2i(r+1, c)
+						best_move_end = Vector2i(r + 1, c)
 
 	if best_move_start != Vector2i(-1, -1):
 		attempt_move(best_move_start, best_move_end)
 
-func _evaluate_move(v_board: Array, start: Vector2i, end: Vector2i) -> Dictionary:
+func _evaluate_move(v_board: Array[Array], start: Vector2i, end: Vector2i) -> Dictionary:
 	var result = {"valid": false, "green_size": 0, "score": 0.0}
 
 	var t1 = v_board[start.x][start.y]
@@ -444,7 +450,8 @@ func attempt_move(start: Vector2i, end: Vector2i):
 		input_handler.set_state(InputHandler.State.IDLE)
 	else:
 		# Valid Move
-		turns -= 1
+		if not is_relax_active():
+			turns -= 1
 		green_matched_this_turn = false
 		
 		await get_tree().create_timer(0.3).timeout
@@ -836,6 +843,17 @@ func check_game_over():
 			complete_scn.queue_free()
 			start_next_level()
 		)
+
+		if is_relax_active():
+			complete_scn.animation_completed.connect(func():
+				if not is_instance_valid(complete_scn): return
+				get_tree().create_timer(5.0, false).timeout.connect(func():
+					if is_instance_valid(complete_scn) and ui_container.has_node("LevelComplete"):
+						level_manager.advance_level()
+						complete_scn.queue_free()
+						start_next_level()
+				)
+			)
 		
 	elif turns <= 0:
 		# Game Over Logic

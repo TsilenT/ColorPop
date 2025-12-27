@@ -47,6 +47,18 @@ func setup(lm, sm = null):
 				auto_match_toggle.visible = true
 			else:
 				auto_match_toggle.visible = false
+				
+			# Resize Panel
+			if $Panel:
+				var target_h = 450 # Original base height
+				if auto_match_toggle.visible:
+					target_h = 520 # Expanded height
+				
+				$Panel.custom_minimum_size.y = target_h
+				$Panel.size.y = target_h
+				# Maintain Center Anchor
+				$Panel.offset_top = - target_h / 2.0
+				$Panel.offset_bottom = target_h / 2.0
 
 		var sfx_vol = level_manager.save_manager.get_setting("sfx_volume", 0.5)
 		if sfx_slider: sfx_slider.value = sfx_vol
