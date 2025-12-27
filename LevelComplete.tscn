@@ -31,7 +31,7 @@ grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="CenterContainer"]
 layout_mode = 2
-theme_override_constants/separation = 30
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="CenterContainer/VBox"]
 layout_mode = 2
@@ -40,13 +40,13 @@ text = "LEVEL COMPLETE!"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="CenterContainer/VBox"]
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
 [node name="StatsContainer" type="GridContainer" parent="CenterContainer/VBox"]
 layout_mode = 2
 theme_override_constants/h_separation = 40
-theme_override_constants/v_separation = 20
+theme_override_constants/v_separation = 5
 columns = 2
 
 [node name="LevelLabel" type="Label" parent="CenterContainer/VBox/StatsContainer"]
@@ -86,7 +86,7 @@ text = "0"
 horizontal_alignment = 2
 
 [node name="Spacer2" type="Control" parent="CenterContainer/VBox"]
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
 [node name="RewardsTitle" type="Label" parent="CenterContainer/VBox"]
@@ -121,7 +121,7 @@ theme_override_font_sizes/font_size = 48
 text = "+0"
 
 [node name="Spacer3" type="Control" parent="CenterContainer/VBox"]
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 
 [node name="ContinueLabel" type="Label" parent="CenterContainer/VBox"]
