@@ -2,8 +2,6 @@ class_name BoardManager
 extends Node
 
 # Signals
-signal match_found(matches)
-signal turn_finished
 
 # Constants (Shared with Game, or passed in)
 var COLS = 8
