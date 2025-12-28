@@ -48,8 +48,7 @@ func setup(rewards: Dictionary, final_score: float, turns_left: int, start_lvl: 
 		level_val.text = str(start_lvl)
 		if (end_lvl - start_lvl) > 1:
 			level_val.add_theme_color_override("font_color", Color.GREEN)
-			shake_strength = 10.0 # Shake for skips
-			if sound_manager: sound_manager.play_tone(600, 0.2)
+			shake_strength = min(end_lvl - start_lvl, 10) # Shake for skips
 	else:
 		level_val.text = str(start_lvl)
 	
@@ -58,12 +57,19 @@ func setup(rewards: Dictionary, final_score: float, turns_left: int, start_lvl: 
 
 func _process(delta):
 	if shake_strength > 0:
-		shake_strength = lerp(shake_strength, 0.0, 10.0 * delta)
+		shake_strength = lerp(shake_strength, 0.0, 2.0 * delta)
 		# Update pivot for correct rotation center
 		level_val.pivot_offset = level_val.size / 2.0
 		level_val.rotation = randf_range(-0.05 * shake_strength, 0.05 * shake_strength)
+		
+		# "Camera" Shake (Move the whole UI Layer)
+		position = Vector2(
+			randf_range(-shake_strength, shake_strength),
+			randf_range(-shake_strength, shake_strength)
+		)
 	else:
 		level_val.rotation = 0.0
+		position = Vector2.ZERO
 
 func start_animation():
 	if tween: tween.kill()
@@ -110,9 +116,10 @@ func start_animation():
 		
 		var diff = val - _last_diam_tick
 		if diff > 0:
+			# FIX: Only play ONE sound per frame, even if multiple diamonds added.
+			# Prevents "gross sound" and audio engine crashes on lag spikes.
 			if sound_manager:
-				for i in range(diff):
-					sound_manager.play_diamond_tick()
+				sound_manager.play_diamond_tick()
 			_last_diam_tick = val
 	, 0, target_diam, 1.0)
 	

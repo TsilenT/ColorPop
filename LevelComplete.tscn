@@ -52,7 +52,7 @@ columns = 2
 [node name="LevelLabel" type="Label" parent="CenterContainer/VBox/StatsContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
-text = "Level:"
+text = "Next Level:"
 
 [node name="LevelValue" type="Label" parent="CenterContainer/VBox/StatsContainer"]
 layout_mode = 2
