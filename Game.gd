@@ -118,46 +118,148 @@ func perform_auto_match():
 
 	for r in range(ROWS):
 		for c in range(COLS):
-			# Right
-			if c < COLS - 1:
-				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r, c + 1))
+			# Row Moves (Try moving to every other column in SAME ROW)
+			for target_c in range(COLS):
+				if c == target_c: continue
+				
+				# Optimization: Pruning
+				# Only simulate if the move lands the tile near a compatible neighbor
+				if not _has_potential_match(virtual_board, r, c, r, target_c):
+					continue
+				
+				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r, target_c))
 				if res.valid:
+					# Debug for Green
+					if res.green_size > 0:
+						print("AutoMatch: Found Green Check (G=%d) %s -> %s" % [res.green_size, Vector2i(r, c), Vector2i(r, target_c)])
+						
 					if res.green_size > best_green_size:
 						best_green_size = res.green_size
 						best_score = res.score
 						best_move_start = Vector2i(r, c)
-						best_move_end = Vector2i(r, c + 1)
+						best_move_end = Vector2i(r, target_c)
 					elif res.green_size == best_green_size:
 						if res.score > best_score:
 							best_score = res.score
 							best_move_start = Vector2i(r, c)
-							best_move_end = Vector2i(r, c + 1)
-			
-			# Down
-			if r < ROWS - 1:
-				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r + 1, c))
+							best_move_end = Vector2i(r, target_c)
+
+			# Column Moves (Try moving to every other row in SAME COL)
+			for target_r in range(ROWS):
+				if r == target_r: continue
+				
+				# Optimization: Pruning
+				if not _has_potential_match(virtual_board, r, c, target_r, c):
+					continue
+				
+				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(target_r, c))
 				if res.valid:
+					# Debug for Green
+					if res.green_size > 0:
+						print("AutoMatch: Found Green Check (G=%d) %s -> %s" % [res.green_size, Vector2i(r, c), Vector2i(target_r, c)])
+						
 					if res.green_size > best_green_size:
 						best_green_size = res.green_size
 						best_score = res.score
 						best_move_start = Vector2i(r, c)
-						best_move_end = Vector2i(r + 1, c)
+						best_move_end = Vector2i(target_r, c)
+					elif res.green_size == best_green_size:
+						if res.score > best_score:
+							best_score = res.score
+							best_move_start = Vector2i(r, c)
+							best_move_end = Vector2i(target_r, c)
 
 	if best_move_start != Vector2i(-1, -1):
 		attempt_move(best_move_start, best_move_end)
+
+# Optimization Helper: Checks if moving tile at start->end has any chance of matching
+# Checks perpendicular neighbors at destination.
+func _has_potential_match(v_board: Array, start_r: int, start_c: int, end_r: int, end_c: int) -> bool:
+	var t = v_board[start_r][start_c]
+	if not t: return false
+	
+	var type = t.tile_type
+	if type == Tile.Type.DIAMOND: return true # Diamonds match everything, always check
+	
+	# Check Neighbors at DESTINATION (excluding the axis of movement)
+	# If moving Vertically (Row Change), check Left/Right neighbors at End Row
+	if start_c == end_c: # Vertical Move
+		# Check Left
+		if end_c > 0:
+			var n = v_board[end_r][end_c - 1]
+			if n and (n.tile_type == type or n.tile_type == Tile.Type.DIAMOND): return true
+		# Check Right
+		if end_c < COLS - 1:
+			var n = v_board[end_r][end_c + 1]
+			if n and (n.tile_type == type or n.tile_type == Tile.Type.DIAMOND): return true
+			
+		# Also check "Vertical" neighbors that might NOT be moving?
+		# Actually, if we move tile to (end_r, c), the tile previously at (end_r, c) moves away.
+		# But the tile at (end_r + 1, c) stays static (unless it's part of the shift range).
+		# To be safe and simple: Just checking Perpendicular neighbors handles 80% of cases.
+		
+	# If moving Horizontally (Col Change), check Up/Down neighbors at End Col
+	elif start_r == end_r: # Horizontal Move
+		# Check Up
+		if end_r > 0:
+			var n = v_board[end_r - 1][end_c]
+			if n and (n.tile_type == type or n.tile_type == Tile.Type.DIAMOND): return true
+		# Check Down
+		if end_r < ROWS - 1:
+			var n = v_board[end_r + 1][end_c]
+			if n and (n.tile_type == type or n.tile_type == Tile.Type.DIAMOND): return true
+			
+	return false
 
 func _evaluate_move(v_board: Array[Array], start: Vector2i, end: Vector2i) -> Dictionary:
 	var result = {"valid": false, "green_size": 0, "score": 0.0}
 
 	var t1 = v_board[start.x][start.y]
-	var t2 = v_board[end.x][end.y]
+	if not t1: return result
+	# Note: t2 is not simply the tile at end, because we shift, not swap.
+	
+	# Create a deep copy of the row or column to revert later easily
+	# actually for speed, we'll just replicate the shift logic and revert it by shifting back?
+	# Or simpler: Backup the affected line.
+	
+	# Determine if Row or Col
+	var is_row = (start.x == end.x)
+	var is_col = (start.y == end.y)
+	
+	if not is_row and not is_col: return result # Should not happen based on loop logic
+	
+	# Backup State
+	var backup_line = []
+	if is_row:
+		for k in range(COLS): backup_line.append(v_board[start.x][k])
+	else:
+		for k in range(ROWS): backup_line.append(v_board[k][start.y])
+		
+	# -- PERFORM SHIFT on v_board (Logic copied/adapted from BoardManager) --
+	if is_row:
+		var r = start.x
+		var mover_tile = v_board[r][start.y]
+		if start.y < end.y:
+			for k in range(start.y, end.y):
+				v_board[r][k] = v_board[r][k + 1]
+		else:
+			for k in range(start.y, end.y, -1):
+				v_board[r][k] = v_board[r][k - 1]
+		v_board[r][end.y] = mover_tile
+	
+	elif is_col:
+		var c = start.y
+		var mover_tile = v_board[start.x][c]
+		if start.x < end.x:
+			for k in range(start.x, end.x):
+				v_board[k][c] = v_board[k + 1][c]
+		else:
+			for k in range(start.x, end.x, -1):
+				v_board[k][c] = v_board[k - 1][c]
+		v_board[end.x][c] = mover_tile
+	# -----------------------------------------------------------------------
 
-	if not t1 or not t2: return result
-
-	# Swap
-	v_board[start.x][start.y] = t2
-	v_board[end.x][end.y] = t1
-
+	# Check Matches
 	var matches = MatchUtils.find_matches(v_board, ROWS, COLS)
 	if not matches.is_empty():
 		result.valid = true
@@ -194,9 +296,11 @@ func _evaluate_move(v_board: Array[Array], start: Vector2i, end: Vector2i) -> Di
 		result.green_size = max_green
 		result.score = total_score
 
-	# Revert Swap
-	v_board[start.x][start.y] = t1
-	v_board[end.x][end.y] = t2
+	# Revert State
+	if is_row:
+		for k in range(COLS): v_board[start.x][k] = backup_line[k]
+	else:
+		for k in range(ROWS): v_board[k][start.y] = backup_line[k]
 
 	return result
 

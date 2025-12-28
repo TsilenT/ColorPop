@@ -143,9 +143,26 @@ func shift_tile_data(from_r, from_c, to_r, to_c):
 	animate_tile(t, to_r, to_c)
 
 func animate_tile(tile: Node2D, r: int, c: int):
+	if not is_instance_valid(tile): return
+	
 	tile.coordinates = Vector2i(r, c)
+	
+	# Kill existing tween to prevent conflicts (Ghost/Lagging tiles)
+	if tile.has_meta("tween"):
+		var old: Tween = tile.get_meta("tween")
+		if old and old.is_valid(): old.kill()
+		
 	var tween = create_tween()
-	tween.tween_property(tile, "position", grid_to_pixel(r, c), 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tile.set_meta("tween", tween)
+	
+	var target_pos = grid_to_pixel(r, c)
+	var distance = tile.position.distance_to(target_pos)
+	
+	# Dynamic Duration: Base 0.2s, plus time for distance
+	# e.g. 500px / 1500 speed = 0.33s -> total 0.53s
+	var duration = clamp(0.15 + (distance / 1200.0), 0.2, 0.6)
+	
+	tween.tween_property(tile, "position", target_pos, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 func apply_gravity():
 	for c in range(COLS):
