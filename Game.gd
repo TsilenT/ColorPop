@@ -346,11 +346,11 @@ func attempt_move(start: Vector2i, end: Vector2i):
 		if sound_manager: sound_manager.play_error()
 		add_log("Invalid Move! No matches.")
 		
-		await get_tree().create_timer(0.25).timeout
+		await get_tree().create_timer(0.25, false).timeout
 		
 		# Revert
 		board_manager.perform_shift(end, start, null) # No sound on revert
-		await get_tree().create_timer(0.25).timeout
+		await get_tree().create_timer(0.25, false).timeout
 		
 		input_locked = false
 		input_handler.set_state(InputHandler.State.IDLE)
@@ -360,7 +360,7 @@ func attempt_move(start: Vector2i, end: Vector2i):
 			turns -= 1
 		green_matched_this_turn = false
 		
-		await get_tree().create_timer(0.3).timeout
+		await get_tree().create_timer(0.3, false).timeout
 		resolve_matches()
 
 
@@ -375,9 +375,9 @@ func resolve_matches():
 		process_match_group(group)
 	
 	update_ui()
-	await get_tree().create_timer(0.2).timeout
+	await get_tree().create_timer(0.2, false).timeout
 	board_manager.apply_gravity()
-	await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.1, false).timeout
 	board_manager.refill_board()
 	
 	# Reset Spawn Flags for next cascade step
@@ -386,7 +386,7 @@ func resolve_matches():
 			var t = board_manager.get_tile(r, c)
 			if t: t.is_newly_spawned = false
 	
-	await get_tree().create_timer(0.6).timeout
+	await get_tree().create_timer(0.6, false).timeout
 	resolve_matches()
 
 func end_turn_processing():
@@ -592,7 +592,7 @@ func try_cast_spell(grid_pos: Vector2i):
 		
 		add_log("Catalyst! Black -> %s!" % [Tile.Type.keys()[target_type]])
 		
-		await get_tree().create_timer(0.3).timeout
+		await get_tree().create_timer(0.3, false).timeout
 		resolve_matches()
 	else:
 		if sound_manager: sound_manager.play_error()
@@ -651,11 +651,11 @@ func try_cast_harvest(row_idx: int):
 			board_manager.remove_tile_at(t.coordinates)
 			
 		update_ui()
-		await get_tree().create_timer(0.2).timeout
+		await get_tree().create_timer(0.2, false).timeout
 		board_manager.apply_gravity()
 		board_manager.refill_board()
 		
-		await get_tree().create_timer(0.5).timeout
+		await get_tree().create_timer(0.5, false).timeout
 		resolve_matches()
 	else:
 		if sound_manager: sound_manager.play_error()
@@ -720,7 +720,9 @@ func open_settings():
 	add_child(settings)
 	settings.setup(level_manager, sound_manager)
 	if sound_manager: sound_manager.play_tone(400, 0.05)
+	
 	get_tree().paused = true
+	
 	settings.close_requested.connect(func():
 		settings.queue_free()
 		get_tree().paused = false

@@ -50,7 +50,7 @@ const EXCHANGE_ITEMS = [
 const RELAX_ITEM = {
 	"id": "relax",
 	"name": "Relax",
-	"base_cost": 1000000,
+	"base_cost": 100000,
 	"desc": "It's time to stop playing. Let AI do it for you!",
 	"max": 1,
 	"currency": "diamonds",
@@ -94,7 +94,10 @@ func switch_tab(tab: String):
 func are_all_diamond_upgrades_maxed() -> bool:
 	if not level_manager: return false
 	
-	for up in diamond_upgrades:
+	var list = diamond_upgrades.duplicate()
+	list.append(RELAX_ITEM)
+	
+	for up in list:
 		var current = level_manager.save_manager.get_upgrade_level(up["id"])
 		var max_lvl = up.get("max", -1)
 		if max_lvl != -1 and current < max_lvl:
@@ -153,7 +156,7 @@ func refresh_ui():
 		
 		# "Relax" Upgrade Logic (Hidden unless 1M diamonds or owned)
 		var relax_level = level_manager.save_manager.get_upgrade_level("relax")
-		if currency_amount >= 1000000 or relax_level > 0:
+		if currency_amount >= 10000 or relax_level > 0:
 			list.append(RELAX_ITEM)
 
 		# Check for Maxed Out Shop
