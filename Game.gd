@@ -289,7 +289,7 @@ func start_next_level():
 	
 	board_manager.initialize_board()
 	update_ui()
-	add_log("Level %d Start! Target: %d" % [level_manager.current_level, target])
+	add_log("Level %d Start! Target: %s" % [level_manager.current_level, Utils.format_currency(target, 1000000000.0)])
 
 func reset_game():
 	level_manager.setup_run()
@@ -477,7 +477,7 @@ func process_match_group(group: Array):
 			# Assuming they have a score value defined in LevelManager (usually negative)
 			# Show the score text specifically for Black
 			if fx_enabled:
-				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
+				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score, 100000.0), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
 			
 		if type == Tile.Type.GREEN:
 			green_matched_this_turn = true
@@ -488,9 +488,15 @@ func process_match_group(group: Array):
 				gain = (gain / diamond_mult) * (1.0 + (up_level * 0.1))
 			
 			multiplier += gain
-			add_log("Matched %d GREEN! Mult +%.2f -> %.2fx" % [match_count, gain, multiplier])
+			if gain < 1000.0:
+				add_log("Matched %d GREEN! Mult +%.2f x -> %s x" % [match_count, gain, Utils.format_currency(multiplier, 1000000.0)])
+			else:
+				add_log("Matched %d GREEN! Mult +%s x -> %s x" % [match_count, Utils.format_currency(gain, 1000000.0), Utils.format_currency(multiplier, 1000000.0)])
 			if fx_enabled:
-				spawn_floating_text(center_pos + Vector2(0, -20), "+%.2fx Mult" % gain, Color.GREEN)
+				if gain < 1000.0:
+					spawn_floating_text(center_pos + Vector2(0, -20), "+%.2f x Mult" % gain, Color.GREEN)
+				else:
+					spawn_floating_text(center_pos + Vector2(0, -20), "+%s x Mult" % Utils.format_currency(gain, 100000.0), Color.GREEN)
 		
 		if type == Tile.Type.BLUE:
 			var gain = match_count * 5 * efficiency
@@ -498,9 +504,10 @@ func process_match_group(group: Array):
 				var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
-			add_log("Matched %d BLUE! +%d Mana" % [match_count, int(gain)])
+			mana = min(get_max_mana(), mana + gain)
+			add_log("Matched %d BLUE! +%s Mana" % [match_count, Utils.format_currency(int(gain), 1000000.0)])
 			if fx_enabled:
-				spawn_floating_text(center_pos + Vector2(0, 20), "+%d Mana" % int(gain), Color.BLUE, 1.0, Color.WHITE)
+				spawn_floating_text(center_pos + Vector2(0, 20), "+%s Mana" % Utils.format_currency(int(gain), 100000.0), Color.BLUE, 1.0, Color.WHITE)
 
 	score = max(0, score + match_score)
 	
@@ -530,7 +537,7 @@ func process_match_group(group: Array):
 			if match_score < 0:
 				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score), txt_color, 1.2)
 			else:
-				spawn_floating_text(center_pos, "+%s" % Utils.format_currency(match_score), txt_color, 1.2)
+				spawn_floating_text(center_pos, "+%s" % Utils.format_currency(match_score, 100000.0), txt_color, 1.2)
 	
 	if match_score != 0:
 		var log_msg = "Matched %d %s! Pts: %s" % [match_count, type_name, Utils.format_currency(match_score)]
@@ -809,7 +816,11 @@ func update_ui():
 		score_text.text = "%s / %s" % [Utils.format_currency(score, 1000000000.0), Utils.format_currency(level_manager.get_current_target(), 1000000000.0)]
 	if score_bar: score_bar.value = score
 	if turns_label: turns_label.text = "Turns: %d" % turns
-	if multi_label: multi_label.text = "Multiplier: %.2fx" % multiplier
+	if multi_label:
+		if multiplier < 1000.0:
+			multi_label.text = "Multiplier: %.2f x" % multiplier
+		else:
+			multi_label.text = "Multiplier: %s x" % Utils.format_currency(multiplier, 1000000000.0)
 	if gold_label and level_manager:
 		gold_label.text = Utils.format_currency(level_manager.save_manager.get_gold())
 	if diam_label and level_manager:

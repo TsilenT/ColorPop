@@ -115,7 +115,7 @@ func setup(data, current_level: int, multiplier: int = 1, currency_available: fl
 	else:
 		var txt = ""
 		if purchase_amount > 1:
-			txt += "%dx | " % purchase_amount
+			txt += "%s x | " % Utils.format_currency(purchase_amount, 100000.0)
 
 		if currency == "diamonds":
 			cost_label.text = txt + "%s" % Utils.format_currency(current_cost)
