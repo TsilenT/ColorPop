@@ -93,6 +93,16 @@ func setup(data, current_level: int, multiplier: int = 1, currency_available: fl
 			var scale_term = (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
 
 			current_cost = float(base_term + scale_term)
+
+			# Fix floating point precision issues in Max Buy where cost slightly exceeds gold
+			if multiplier == -1 and current_cost > currency_available and purchase_amount > 1:
+				while current_cost > currency_available and purchase_amount > 1:
+					purchase_amount -= 1
+					n = purchase_amount
+					# Recalculate cost with new n
+					base_term = n * B
+					scale_term = (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
+					current_cost = float(base_term + scale_term)
 	
 	if data.get("hide_level", false):
 		lvl_label.visible = false
