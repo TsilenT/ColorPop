@@ -8,6 +8,12 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -42,12 +48,17 @@ jobs:
           godot --headless --path "$GITHUB_WORKSPACE" \
             --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
 
-      - name: Mirror to colorpop.stevets.ai
-        uses: peaceiris/actions-gh-pages@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
-          deploy_key: ${{ secrets.MIRROR_DEPLOY_KEY }}
-          external_repository: TsilenT/colorpop-play
-          publish_branch: gh-pages
-          publish_dir: build/web
-          cname: colorpop.stevets.ai
-          force_orphan: true
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
