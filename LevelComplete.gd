@@ -11,33 +11,33 @@ signal animation_completed
 @onready var cont_label = $CenterContainer/VBox/ContinueLabel
 var shake_strength: float = 0.0
 
-var current_score: float
+var current_score: Big = Big.zero()
 var current_turns: int
 var start_level: int
 var end_level: int
-var target_gold: float
-var target_diam: float
+var target_gold: Big = Big.zero()
+var target_diam: Big = Big.zero()
 
 var sound_manager: SoundManager
-# Track previous integer values to trigger sounds on change
+# Track previous displayed values to trigger sounds on change
 var _last_gold_tick: float = -1.0
 var _last_diam_tick: float = -1.0
 
 var tween: Tween
 var animation_finished: bool = false
 
-func setup(rewards: Dictionary, final_score: float, turns_left: int, start_lvl: int, end_lvl: int, sound_mgr: SoundManager = null):
+func setup(rewards: Dictionary, final_score: Big, turns_left: int, start_lvl: int, end_lvl: int, sound_mgr: SoundManager = null):
 	# Initial State
 	current_score = final_score
 	current_turns = turns_left
 	start_level = start_lvl
 	end_level = end_lvl
-	target_gold = float(rewards.get("gold", 0))
-	target_diam = float(rewards.get("diamonds", 0))
+	target_gold = rewards.get("gold", Big.zero())
+	target_diam = rewards.get("diamonds", Big.zero())
 	sound_manager = sound_mgr
-	
+
 	level_val.text = str(start_level)
-	score_val.text = str(current_score)
+	score_val.text = current_score.format(1000000000.0)
 	turns_val.text = str(current_turns)
 	gold_reward.text = "+0 Gold"
 	diam_reward.text = "+0"
@@ -79,9 +79,10 @@ func start_animation():
 	_last_diam_tick = 0.0
 	
 	# Phase 1: Score -> Gold (1.5s)
-	tween.tween_method(func(v):
-		score_val.text = Utils.format_currency(v, 1000000000.0)
-	, current_score, 0.0, 1.5)
+	# Tweens run on a 0..1 progress value; Big is scaled by it for display
+	tween.tween_method(func(t):
+		score_val.text = current_score.mul_f(1.0 - t).format(1000000000.0)
+	, 0.0, 1.0, 1.5)
 	
 	# Animate Level Skip parallel to Gold if skipping
 	if end_level > start_level:
@@ -94,34 +95,34 @@ func start_animation():
 				level_val.text = str(current)
 		, float(start_level), float(end_level), 1.5)
 
-	tween.parallel().tween_method(func(v):
-		var val = v
-		gold_reward.text = "+%s Gold" % Utils.format_currency(val, 1000000000.0)
-		if val > _last_gold_tick:
-			_last_gold_tick = val
-			if sound_manager and int(val) % 2 == 0:
+	tween.parallel().tween_method(func(t):
+		var val = target_gold.mul_f(t)
+		gold_reward.text = "+%s Gold" % val.format(1000000000.0)
+		var vf = val.to_float() # Saturated, never inf
+		if vf > _last_gold_tick:
+			_last_gold_tick = vf
+			# Every-other-int gating only makes sense at countable sizes
+			if sound_manager and (vf >= 1e15 or int(vf) % 2 == 0 or target_gold.lt(Big.of(20.0))):
 				sound_manager.play_gold_tick()
-			elif sound_manager and target_gold < 20:
-				sound_manager.play_gold_tick()
-	, 0.0, target_gold, 1.5)
+	, 0.0, 1.0, 1.5)
 	
 	# Phase 2: Turns -> Diamonds (1.0s)
 	tween.tween_method(func(v):
 		turns_val.text = str(int(v))
 	, current_turns, 0, 1.0)
 	
-	tween.parallel().tween_method(func(v):
-		var val = int(v)
-		diam_reward.text = "+%s" % Utils.format_currency(val, 1000000000.0)
-		
-		var diff = val - _last_diam_tick
-		if diff > 0:
+	tween.parallel().tween_method(func(t):
+		var val = target_diam.mul_f(t)
+		diam_reward.text = "+%s" % val.format(1000000000.0)
+
+		var vf = floor(val.to_float())
+		if vf - _last_diam_tick > 0:
 			# FIX: Only play ONE sound per frame, even if multiple diamonds added.
 			# Prevents "gross sound" and audio engine crashes on lag spikes.
 			if sound_manager:
 				sound_manager.play_diamond_tick()
-			_last_diam_tick = val
-	, 0, target_diam, 1.0)
+			_last_diam_tick = vf
+	, 0.0, 1.0, 1.0)
 	
 	# End: Show Continue
 	tween.tween_property(cont_label, "modulate:a", 1.0, 0.5)
@@ -144,9 +145,9 @@ func skip_animation():
 	else:
 		level_val.text = str(end_level)
 	score_val.text = "0"
-	gold_reward.text = "+%s Gold" % Utils.format_currency(target_gold, 1000000000.0)
+	gold_reward.text = "+%s Gold" % target_gold.format(1000000000.0)
 	turns_val.text = "0"
-	diam_reward.text = "+%s" % Utils.format_currency(target_diam, 1000000000.0)
+	diam_reward.text = "+%s" % target_diam.format(1000000000.0)
 	cont_label.modulate.a = 1.0
 	
 	# Play a finish sound?

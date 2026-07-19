@@ -1,7 +1,7 @@
 class_name UpgradeCard
 extends PanelContainer
 
-signal buy_pressed(id: String, cost: float, amount: int)
+signal buy_pressed(id: String, cost: Big, amount: float)
 
 @onready var name_label: Label = $VBox/NameLabel
 @onready var desc_label: Label = $VBox/DescLabel
@@ -11,26 +11,37 @@ signal buy_pressed(id: String, cost: float, amount: int)
 @onready var icon_rect: TextureRect = $VBox/BuyButton/Content/IconRect
 
 var upgrade_id: String
-var current_cost: float
+var current_cost: Big = Big.zero()
 var is_maxed: bool = false
-var purchase_amount: int = 1
+var purchase_amount: float = 1.0
 
 # Helper for Quadratic Calculation
-# n^2 + (3 + 2L)n - (4 * Cost / B) = 0
-func _calculate_max_buy(available_gold: float, L: float, B: float) -> int:
-	if B == 0: return 999999
-	var c_term = - (4.0 * available_gold) / B
+# n^2 + (3 + 2L)n - (4 * Gold / B) = 0
+# All float/Big math — no int casts, so ridiculous gold can't wrap.
+func _calculate_max_buy(available_gold: Big, L: float, B: float) -> float:
+	if B <= 0: return 999999.0
+	var c = available_gold.mul_f(4.0 / B) # 4G/B as Big
 	var b_term = 3.0 + (2.0 * L)
-	
-	# Quadratic Formula: (-b + sqrt(b^2 - 4ac)) / 2a
-	# a = 1
-	var discriminant = (b_term * b_term) - (4.0 * 1.0 * c_term)
-	if discriminant < 0: return 0
-	
-	var n = (-b_term + sqrt(discriminant)) / 2.0
-	return int(floor(n))
 
-func setup(data, current_level: int, multiplier: int = 1, currency_available: float = 0.0):
+	var cf = c.to_float() # Saturates at ~1.8e308 instead of wrapping
+	if not is_finite(b_term) or cf > 1e300:
+		# Gold term dwarfs the linear term: n ~= sqrt(16G/B)/2, via log space
+		var n = pow(10.0, (c.lg() + Big.log10_f(4.0)) / 2.0) / 2.0
+		return floor(n) if is_finite(n) else 1.7976e308
+
+	# Quadratic Formula: (-b + sqrt(b^2 + 16G/B)) / 2, with c = 4G/B
+	var discriminant = (b_term * b_term) + 4.0 * cf
+	if discriminant < 0: return 0.0
+	return floor((-b_term + sqrt(discriminant)) / 2.0)
+
+# cost(n) = n*B + (B/4)*n*(2L + n - 1), computed in Big
+func _cost_for(n: float, L: float, B: float) -> Big:
+	var linear = Big.of(n).mul_f(B)
+	var quad = Big.of(n).mul(Big.of(2.0 * L + n - 1.0)).mul_f(B * 0.25)
+	return linear.add(quad)
+
+func setup(data, current_level: float, multiplier: int = 1, currency_available: Big = null):
+	if currency_available == null: currency_available = Big.zero()
 	upgrade_id = data["id"]
 	name_label.text = data["name"]
 	desc_label.text = data["desc"]
@@ -52,57 +63,43 @@ func setup(data, current_level: int, multiplier: int = 1, currency_available: fl
 		if upgrade_id.begins_with("exchange_"):
 			# Linear cost: Cost = n * Base
 			if base > 0:
-				purchase_amount = int(floor(currency_available / base))
+				purchase_amount = floor(currency_available.div(Big.of(float(base))).to_float())
 			else:
-				purchase_amount = 999
+				purchase_amount = 999.0
 		else:
 			# Quadratic cost
-			purchase_amount = _calculate_max_buy(currency_available, current_level, base)
-		
+			purchase_amount = _calculate_max_buy(currency_available, current_level, float(base))
+
 		# Ensure at least 1 is shown (even if unaffordable) to show NEXT step cost
-		if purchase_amount < 1: purchase_amount = 1
-		
+		if purchase_amount < 1: purchase_amount = 1.0
+
 	# Clamp to Max Level
 	if max_lvl != -1 and not is_maxed:
-		var remaining = max_lvl - current_level
+		var remaining = float(max_lvl) - current_level
 		if purchase_amount > remaining:
 			purchase_amount = remaining
-			
+
 	# Cost Formatting
 	if is_maxed:
-		current_cost = 0
+		current_cost = Big.zero()
 	else:
 		if upgrade_id.begins_with("exchange_"):
 			# Exchange items don't scale cost with level, just multiply base by amount
-			current_cost = base * purchase_amount
+			current_cost = Big.of(float(base)).mul_f(purchase_amount)
 			# Update Description dynamically
 			# 100 Diamonds = 500 Gold. So 5 * cost.
-			var gold_amount = current_cost * 5
-			desc_label.text = "%s Gold" % Utils.format_currency(gold_amount)
+			desc_label.text = "%s Gold" % current_cost.mul_f(5.0).format()
 		else:
-			# Formula: n * B + (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
-			# n = purchase_amount
-			# L = current_level
-			# B = base
-			var n = purchase_amount
-			var L = current_level
-			var B = base
+			current_cost = _cost_for(purchase_amount, current_level, float(base))
 
-			# Breaking down to avoid float issues where possible, though 0.5 forces float
-			var base_term = n * B
-			var scale_term = (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
-
-			current_cost = float(base_term + scale_term)
-
-			# Fix floating point precision issues in Max Buy where cost slightly exceeds gold
-			if multiplier == -1 and current_cost > currency_available and purchase_amount > 1:
-				while current_cost > currency_available and purchase_amount > 1:
-					purchase_amount -= 1
-					n = purchase_amount
-					# Recalculate cost with new n
-					base_term = n * B
-					scale_term = (B * 0.5) * n * ((2.0 * L + n - 1) / 2.0)
-					current_cost = float(base_term + scale_term)
+			# Fix float precision in Max Buy where cost slightly exceeds gold.
+			# Back off proportionally (min 1 level) so huge n converges fast.
+			if multiplier == -1 and current_cost.gt(currency_available) and purchase_amount > 1:
+				var guard = 0
+				while current_cost.gt(currency_available) and purchase_amount > 1 and guard < 64:
+					guard += 1
+					purchase_amount = max(1.0, floor(purchase_amount - max(1.0, purchase_amount * 0.000001)))
+					current_cost = _cost_for(purchase_amount, current_level, float(base))
 	
 	if data.get("hide_level", false):
 		lvl_label.visible = false
@@ -128,24 +125,24 @@ func setup(data, current_level: int, multiplier: int = 1, currency_available: fl
 			txt += "%s x | " % Utils.format_currency(purchase_amount, 100000.0)
 
 		if currency == "diamonds":
-			cost_label.text = txt + "%s" % Utils.format_currency(current_cost)
+			cost_label.text = txt + "%s" % current_cost.format()
 			icon_rect.texture = preload("res://assets/icon_diamond.svg")
 			icon_rect.visible = true
 			cost_label.add_theme_color_override("font_color", Color(0.26, 0.8, 1))
 		else:
-			cost_label.text = txt + "%s" % Utils.format_currency(current_cost)
+			cost_label.text = txt + "%s" % current_cost.format()
 			icon_rect.texture = preload("res://assets/icon_gold.svg")
 			icon_rect.visible = true
 			cost_label.add_theme_color_override("font_color", Color(1, 1, 0.6))
-	
-func update_state(player_currency: float):
+
+func update_state(player_currency: Big):
 	if is_maxed:
 		buy_button.disabled = true
 		buy_button.modulate = Color(0.7, 0.7, 0.7)
 		return
 
 	if buy_button:
-		buy_button.disabled = (player_currency < current_cost)
+		buy_button.disabled = player_currency.lt(current_cost)
 		if buy_button.disabled:
 			buy_button.modulate = Color(0.7, 0.7, 0.7)
 		else:

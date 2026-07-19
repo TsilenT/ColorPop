@@ -40,9 +40,9 @@ var sound_manager: SoundManager
 var board_manager: BoardManager
 var input_handler: InputHandler
 
-var score: float = 0
+var score: Big = Big.zero()
 var turns: int = 20
-var multiplier: float = 1.0
+var multiplier: Big = Big.of(1.0)
 var mana: float = 0
 var green_matched_this_turn: bool = false
 var input_locked: bool = false # Processing flag
@@ -176,8 +176,8 @@ func setup_managers():
 	# Update COLS based on upgrades
 	if level_manager and level_manager.save_manager:
 		var extra = level_manager.save_manager.get_upgrade_level("columns")
-		COLS = 8 + extra
-		
+		COLS = 8 + int(extra)
+
 	board_manager.setup(board_container, TileScene, level_manager, GRID_OFFSET)
 	
 	# Input
@@ -262,31 +262,32 @@ func start_next_level():
 	turns = 20
 	input_locked = false
 	input_handler.set_state(InputHandler.State.IDLE)
-	
-	score = 0
-	multiplier = 1.0
+
+	score = Big.zero()
+	multiplier = Big.of(1.0)
 	mana = 0
-	
+
 	# Check for grid expansion
 	if level_manager and level_manager.save_manager:
 		var extra = level_manager.save_manager.get_upgrade_level("columns")
-		COLS = 8 + extra
+		COLS = 8 + int(extra)
 		if board_manager:
 			board_manager.COLS = COLS
-			
+
 	setup_background_grid()
 	resize_game()
-	
+
 	if log_label:
 		log_label.text = "Welcome to ColorPop!"
-	
+
 	if score_bar:
-		score_bar.max_value = target
-		score_bar.value = 0
-	
+		# Bar runs on the score/target ratio so Big values never touch it
+		score_bar.max_value = 1.0
+		score_bar.value = 0.0
+
 	board_manager.initialize_board()
 	update_ui()
-	add_log("Level %d Start! Target: %s" % [level_manager.current_level, Utils.format_currency(target, 1000000000.0)])
+	add_log("Level %d Start! Target: %s" % [level_manager.current_level, target.format(1000000000.0)])
 
 func reset_game():
 	level_manager.setup_run()
@@ -421,46 +422,47 @@ func process_match_group(group: Array):
 		level_manager.mark_discovered(type)
 	
 	# Scoring
-	var match_score = 0.0
-	var base_score = 10
+	var match_score: Big = Big.zero()
+	var base_score = 10.0
 	if level_manager: base_score = level_manager.get_tile_score(type)
-	
+
 	var group_upgrade_mult = 1.0
 	if has_concrete_type:
 		var t_key = get_upgrade_key(type)
 		if t_key != "" and level_manager:
 			var t_level = level_manager.save_manager.get_upgrade_level(t_key)
 			group_upgrade_mult = (1.0 + (t_level * 0.1))
-	
+
 	# 2x Multiplier per Diamond
 	var diamond_count = 0
 	for t in group:
 		if t.tile_type == Tile.Type.DIAMOND:
 			diamond_count += 1
-			
+
 	var diamond_mult = 1.0
 	if diamond_count > 0:
 		diamond_mult = pow(2, diamond_count)
-	
+
 	for t in group:
-		var tile_pts = 0.0
+		var tile_pts: Big
 		var is_diamond = (t.tile_type == Tile.Type.DIAMOND)
-		
+
 		# Diamond Reward Logic (Log +1)
 		if is_diamond:
 			if level_manager and level_manager.save_manager:
-				level_manager.save_manager.add_diamonds(1)
+				level_manager.save_manager.add_diamonds(Big.of(1.0))
 				spawn_floating_text(t.global_position, "+1 Diamond!", Color(0, 1, 1), 0.8)
-				
+
 		if not has_concrete_type:
-			tile_pts = 300
+			tile_pts = Big.of(300.0)
 		else:
-			tile_pts = base_score * multiplier * efficiency * group_upgrade_mult
-		
-		match_score += tile_pts
-		
+			# Chained so no float product overflows before Big absorbs it
+			tile_pts = multiplier.mul_f(base_score).mul_f(efficiency).mul_f(group_upgrade_mult)
+
+		match_score = match_score.add(tile_pts)
+
 	# Apply Diamond Multiplier to TOTAL match score
-	match_score *= diamond_mult
+	match_score = match_score.mul_f(diamond_mult)
 		
 	# Check if Visual Effects are enabled
 	var fx_enabled = true
@@ -470,42 +472,43 @@ func process_match_group(group: Array):
 	# Side Effects (Green/Blue/Black)
 	if has_concrete_type:
 		if type == Tile.Type.BLACK:
-			# Black tiles are negative points or just penalties? 
+			# Black tiles are negative points or just penalties?
 			# Assuming they have a score value defined in LevelManager (usually negative)
 			# Show the score text specifically for Black
 			if fx_enabled:
-				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score, 100000.0), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
-			
+				spawn_floating_text(center_pos, "%s" % match_score.format(100000.0), Color.BLACK, 1.2, Color.WHITE) # White outline for black text
+
 		if type == Tile.Type.GREEN:
 			green_matched_this_turn = true
-			var gain = 0.1 * match_count * efficiency * diamond_mult
-			
+			var gain = 0.1 * match_count * efficiency
+
 			if level_manager:
 				var up_level = level_manager.save_manager.get_upgrade_level("mult_green")
-				gain = (gain / diamond_mult) * (1.0 + (up_level * 0.1))
-			
-			multiplier += gain
+				gain = gain * (1.0 + (up_level * 0.1))
+
+			multiplier = multiplier.add(Big.of(gain))
 			if gain < 1000.0:
-				add_log("Matched %d GREEN! Mult +%.2f x -> %s x" % [match_count, gain, Utils.format_currency(multiplier, 1000000.0)])
+				add_log("Matched %d GREEN! Mult +%.2f x -> %s x" % [match_count, gain, multiplier.format(1000000.0)])
 			else:
-				add_log("Matched %d GREEN! Mult +%s x -> %s x" % [match_count, Utils.format_currency(gain, 1000000.0), Utils.format_currency(multiplier, 1000000.0)])
+				add_log("Matched %d GREEN! Mult +%s x -> %s x" % [match_count, Utils.format_currency(gain, 1000000.0), multiplier.format(1000000.0)])
 			if fx_enabled:
 				if gain < 1000.0:
 					spawn_floating_text(center_pos + Vector2(0, -20), "+%.2f x Mult" % gain, Color.GREEN)
 				else:
 					spawn_floating_text(center_pos + Vector2(0, -20), "+%s x Mult" % Utils.format_currency(gain, 100000.0), Color.GREEN)
-		
+
 		if type == Tile.Type.BLUE:
 			var gain = match_count * 5 * efficiency
 			if level_manager:
 				var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
-			add_log("Matched %d BLUE! +%s Mana" % [match_count, Utils.format_currency(int(gain), 1000000.0)])
+			add_log("Matched %d BLUE! +%s Mana" % [match_count, Utils.format_currency(gain, 1000000.0)])
 			if fx_enabled:
-				spawn_floating_text(center_pos + Vector2(0, 20), "+%s Mana" % Utils.format_currency(int(gain), 100000.0), Color.BLUE, 1.0, Color.WHITE)
+				spawn_floating_text(center_pos + Vector2(0, 20), "+%s Mana" % Utils.format_currency(gain, 100000.0), Color.BLUE, 1.0, Color.WHITE)
 
-	score = max(0, score + match_score)
+	score = score.add(match_score)
+	if score.signum() < 0: score = Big.zero()
 	
 	if fx_enabled:
 		# FX: Screen Shake
@@ -528,15 +531,15 @@ func process_match_group(group: Array):
 				parts.process_material.color = p_color
 				
 		# FX: Main Score Text (Skip for Black since we handled it above specially, OR ensure we don't double dip)
-		if match_score != 0 and type != Tile.Type.BLACK: # Black uses special negative formatting above
+		if not match_score.is_zero() and type != Tile.Type.BLACK: # Black uses special negative formatting above
 			var txt_color = TILE_COLORS.get(type, Color.WHITE)
-			if match_score < 0:
-				spawn_floating_text(center_pos, "%s" % Utils.format_currency(match_score), txt_color, 1.2)
+			if match_score.signum() < 0:
+				spawn_floating_text(center_pos, "%s" % match_score.format(), txt_color, 1.2)
 			else:
-				spawn_floating_text(center_pos, "+%s" % Utils.format_currency(match_score, 100000.0), txt_color, 1.2)
-	
-	if match_score != 0:
-		var log_msg = "Matched %d %s! Pts: %s" % [match_count, type_name, Utils.format_currency(match_score)]
+				spawn_floating_text(center_pos, "+%s" % match_score.format(100000.0), txt_color, 1.2)
+
+	if not match_score.is_zero():
+		var log_msg = "Matched %d %s! Pts: %s" % [match_count, type_name, match_score.format()]
 		if diamond_count > 0:
 			log_msg += "\n(Diamond Bonus: x%d! +%d Diamond)" % [int(diamond_mult), diamond_count]
 		add_log(log_msg)
@@ -665,16 +668,16 @@ func try_cast_harvest(row_idx: int):
 		add_log("Not enough Mana!")
 		input_handler.set_state(InputHandler.State.IDLE)
 
-func get_max_mana() -> int:
-	var base = 50
+func get_max_mana() -> float:
+	var base = 50.0
 	if level_manager:
-		base += (level_manager.save_manager.get_upgrade_level("mana_cap") * 10)
-	return base
-	
+		base += (level_manager.save_manager.get_upgrade_level("mana_cap") * 10.0)
+	return base if is_finite(base) else 1.7976e308
+
 func get_spell_cost() -> int:
 	var base = 50
 	if level_manager:
-		base -= (level_manager.save_manager.get_upgrade_level("spell_cost") * 5)
+		base -= int(min(level_manager.save_manager.get_upgrade_level("spell_cost"), 8.0)) * 5
 	return max(10, base)
 
 func get_harvest_cost() -> int:
@@ -738,13 +741,13 @@ func open_settings():
 func check_game_over():
 	if ui_container.has_node("LevelComplete"): return
 	
-	if level_manager and score >= level_manager.get_current_target():
+	if level_manager and score.gte(level_manager.get_current_target()):
 		var turns_left = turns
 		# Calculate and Save Rewards
 		var rewards = level_manager.complete_level(score, turns_left)
-		
+
 		# Calculate Skips
-		var excess = score - level_manager.get_current_target()
+		var excess = score.sub(level_manager.get_current_target())
 		var skips = level_manager.calculate_level_skips(excess)
 		var next_lvl = level_manager.current_level + 1 + skips
 
@@ -784,7 +787,7 @@ func check_game_over():
 			level_manager.save_manager.update_highest_level(level_manager.current_level)
 		
 		# Award Gold for Failure (Consolation)
-		var rewards = {"gold": 0}
+		var rewards = {"gold": Big.zero()}
 		if level_manager:
 			rewards = level_manager.complete_level(score, 0) # 0 turns left
 		
@@ -797,7 +800,7 @@ func check_game_over():
 		if level_manager and level_manager.save_manager:
 			best_lvl = level_manager.save_manager.get_highest_level()
 			
-		game_over_scn.setup(level_manager.current_level, best_lvl, "Out of Turns!", rewards.get("gold", 0))
+		game_over_scn.setup(level_manager.current_level, best_lvl, "Out of Turns!", rewards.get("gold", Big.zero()))
 		
 		game_over_scn.restart_requested.connect(func():
 			game_over_scn.queue_free()
@@ -812,21 +815,21 @@ func restart_full_game():
 func update_ui():
 	if level_label and level_manager: level_label.text = "Level: %d" % level_manager.current_level
 	if score_text and level_manager:
-		score_text.text = "%s / %s" % [Utils.format_currency(score, 1000000000.0), Utils.format_currency(level_manager.get_current_target(), 1000000000.0)]
-	if score_bar: score_bar.value = score
+		score_text.text = "%s / %s" % [score.format(1000000000.0), level_manager.get_current_target().format(1000000000.0)]
+	if score_bar and level_manager: score_bar.value = score.ratio(level_manager.get_current_target())
 	if turns_label: turns_label.text = "Turns: %d" % turns
 	if multi_label:
-		if multiplier < 1000.0:
-			multi_label.text = "Multiplier: %.2f x" % multiplier
+		if multiplier.lt(Big.of(1000.0)):
+			multi_label.text = "Multiplier: %.2f x" % multiplier.to_float()
 		else:
-			multi_label.text = "Multiplier: %s x" % Utils.format_currency(multiplier, 1000000000.0)
+			multi_label.text = "Multiplier: %s x" % multiplier.format(1000000000.0)
 	if gold_label and level_manager:
-		gold_label.text = Utils.format_currency(level_manager.save_manager.get_gold())
+		gold_label.text = level_manager.save_manager.get_gold().format()
 	if diam_label and level_manager:
-		diam_label.text = Utils.format_currency(level_manager.save_manager.get_diamonds())
-	
+		diam_label.text = level_manager.save_manager.get_diamonds().format()
+
 	var max_mana = get_max_mana()
-	if mana_label: mana_label.text = "Mana: %d/%d" % [int(mana), max_mana]
+	if mana_label: mana_label.text = "Mana: %s/%s" % [Utils.format_currency(floor(mana), 100000.0), Utils.format_currency(max_mana, 100000.0)]
 	if mana_bar:
 		mana_bar.max_value = max_mana
 		mana_bar.value = mana

@@ -2,7 +2,7 @@ class_name Shop
 extends CanvasLayer
 
 signal close_requested
-signal upgrade_purchased(key: String, cost: float)
+signal upgrade_purchased(key: String, cost: Big)
 
 @onready var grid_container: GridContainer = $Panel/ScrollContainer/GridContainer
 @onready var gold_label: Label = $Panel/GoldLabel
@@ -108,11 +108,11 @@ func are_all_diamond_upgrades_maxed() -> bool:
 func refresh_ui():
 	if not level_manager: return
 	
-	gold_label.text = "Gold: %s" % Utils.format_currency(level_manager.save_manager.get_gold())
+	gold_label.text = "Gold: %s" % level_manager.save_manager.get_gold().format()
 	var diam_label = $Panel/DiamondLabel
 	if diam_label:
 		diam_label.visible = (current_tab == "diamonds")
-		diam_label.text = "Diamonds: %s" % Utils.format_currency(level_manager.save_manager.get_diamonds())
+		diam_label.text = "Diamonds: %s" % level_manager.save_manager.get_diamonds().format()
 	
 	gold_label.visible = (current_tab == "gold")
 	
@@ -148,15 +148,15 @@ func refresh_ui():
 		
 	# Select List
 	var list = []
-	var currency_amount = level_manager.save_manager.get_gold()
-	
+	var currency_amount: Big = level_manager.save_manager.get_gold()
+
 	if current_tab == "diamonds":
 		list = diamond_upgrades.duplicate()
 		currency_amount = level_manager.save_manager.get_diamonds()
-		
-		# "Relax" Upgrade Logic (Hidden unless 1M diamonds or owned)
+
+		# "Relax" Upgrade Logic (Hidden unless 10k diamonds or owned)
 		var relax_level = level_manager.save_manager.get_upgrade_level("relax")
-		if currency_amount >= 10000 or relax_level > 0:
+		if currency_amount.gte(Big.of(10000.0)) or relax_level > 0:
 			list.append(RELAX_ITEM)
 
 		# Check for Maxed Out Shop
@@ -187,12 +187,12 @@ func _on_multiplier_pressed(m: int):
 	purchase_multiplier = m
 	refresh_ui()
 
-func _on_buy_pressed(key: String, cost: float, amount: int = 1):
+func _on_buy_pressed(key: String, cost: Big, amount: float = 1.0):
 	if level_manager:
 		# Handle Exchange Items (Special Case)
 		if key.begins_with("exchange_"):
 			if level_manager.save_manager.spend_diamonds(cost):
-				var gold_gain = cost * 5
+				var gold_gain = cost.mul_f(5.0)
 				level_manager.save_manager.add_gold(gold_gain)
 				
 				show_feedback("Converted!", Color.GREEN)

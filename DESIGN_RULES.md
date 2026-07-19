@@ -70,6 +70,12 @@ $$Gain = Count \times 5 \times Efficiency$$
 	- **Gold Sack** (exchange): appears once all diamond upgrades are maxed; converts diamonds to gold at 1:5.
 
 ## VI. Systems
+- **Numbers**: Score, gold, diamonds, multiplier, targets, and shop costs use `Big`
+  (mantissa + exponent, ~15 significant digits, range $10^{\pm 9 \times 10^{15}}$).
+  Upgrade levels are float64. Ridiculous values are the point: precision loss is
+  accepted by design (adding 1e20 to 1e40 is a no-op), non-finite inputs saturate
+  to a cap displayed as ∞, and formatting is O(1) exponent math (suffixes k..Q,
+  then aa..zz, then scientific).
 - **Audio**: Procedural 8-bit sound engine (Code-generated).
 - **Visuals**:
   - Valid spell casts tint buttons green.
