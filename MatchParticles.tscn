@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://matchparticles123"]
 
 [ext_resource type="Script" path="res://MatchParticles.gd" id="1_script"]
-[ext_resource type="Texture2D" uid="uid://diamondicon" path="res://assets/tile_diamond.svg" id="2_tex"]
+[ext_resource type="Texture2D" uid="uid://be14nfqnduk53" path="res://assets/tile_diamond.svg" id="2_tex"]
 
 [node name="MatchParticles" type="CPUParticles2D"]
 z_index = 20
