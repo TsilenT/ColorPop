@@ -140,12 +140,9 @@ func _ready():
 	start_next_level()
 	
 	get_window().move_to_center()
-	randomize()
-	
+
 	setup_ui_connections()
-	
-	update_ui() # Initial UI Set
-	
+
 	update_ui() # Initial UI Set
 	setup_legend_ui()
 	update_legend()
@@ -319,7 +316,7 @@ func activate_spell_mode(mode: String = "catalyst"):
 
 	var cost = 0
 	if mode == "catalyst": cost = get_spell_cost()
-	elif mode == "harvest": cost = 50 # Rebalanced 100 -> 50
+	elif mode == "harvest": cost = get_harvest_cost()
 	
 	if mana >= cost:
 		input_handler.set_spell_mode(mode)
@@ -504,7 +501,6 @@ func process_match_group(group: Array):
 				var up_level = level_manager.save_manager.get_upgrade_level("mult_blue")
 				gain *= (1.0 + (up_level * 0.1))
 			mana = min(get_max_mana(), mana + gain)
-			mana = min(get_max_mana(), mana + gain)
 			add_log("Matched %d BLUE! +%s Mana" % [match_count, Utils.format_currency(int(gain), 1000000.0)])
 			if fx_enabled:
 				spawn_floating_text(center_pos + Vector2(0, 20), "+%s Mana" % Utils.format_currency(int(gain), 100000.0), Color.BLUE, 1.0, Color.WHITE)
@@ -607,7 +603,7 @@ func try_cast_spell(grid_pos: Vector2i):
 		input_handler.set_state(InputHandler.State.IDLE)
 
 func try_cast_harvest(row_idx: int):
-	var cost = 50 # Rebalanced
+	var cost = get_harvest_cost()
 	if mana >= cost:
 		mana -= cost
 		
@@ -680,6 +676,9 @@ func get_spell_cost() -> int:
 	if level_manager:
 		base -= (level_manager.save_manager.get_upgrade_level("spell_cost") * 5)
 	return max(10, base)
+
+func get_harvest_cost() -> int:
+	return 50 # Rebalanced 100 -> 50
 #endregion
 
 # Helpers
@@ -840,65 +839,38 @@ func update_ui():
 	if spell_button:
 		var cost = get_spell_cost()
 		spell_button.text = "Catalyst (%d)" % cost
-		
-		if active_spell == "catalyst":
-			# Active State
-			spell_button.disabled = false
-			spell_button.modulate = Color(0.6, 1.0, 0.6) # Green
-			spell_button.remove_theme_color_override("font_color")
-			spell_button.remove_theme_color_override("font_hover_color")
-			spell_button.remove_theme_color_override("font_pressed_color")
-			spell_button.remove_theme_color_override("font_focus_color")
-		elif mana >= cost:
-			# Available State
-			spell_button.disabled = false
-			spell_button.modulate = Color(1, 1, 1) # Normal
-			spell_button.add_theme_color_override("font_color", Color.GREEN)
-			spell_button.add_theme_color_override("font_hover_color", Color.GREEN)
-			spell_button.add_theme_color_override("font_pressed_color", Color.GREEN)
-			spell_button.add_theme_color_override("font_focus_color", Color.GREEN)
-		else:
-			# Disabled State
-			spell_button.disabled = true
-			spell_button.modulate = Color(1, 1, 1) # Normal dimming handles by disabled
-			spell_button.remove_theme_color_override("font_color")
-			spell_button.remove_theme_color_override("font_hover_color")
-			spell_button.remove_theme_color_override("font_pressed_color")
-			spell_button.remove_theme_color_override("font_focus_color")
-			
+		style_spell_button(spell_button, active_spell == "catalyst", mana >= cost)
+
 	# Harvest Button
 	if harvest_button:
 		if level_manager and level_manager.save_manager.get_upgrade_level("harvest") > 0:
 			harvest_button.visible = true
-			var h_cost = 50
+			var h_cost = get_harvest_cost()
 			harvest_button.text = "Harvest (%d)" % h_cost
-			
-			if active_spell == "harvest":
-				harvest_button.disabled = false
-				harvest_button.modulate = Color(0.6, 1.0, 0.6) # Green
-				harvest_button.remove_theme_color_override("font_color")
-				harvest_button.remove_theme_color_override("font_hover_color")
-				harvest_button.remove_theme_color_override("font_pressed_color")
-				harvest_button.remove_theme_color_override("font_focus_color")
-			elif mana >= h_cost:
-				harvest_button.disabled = false
-				harvest_button.modulate = Color(1, 1, 1)
-				harvest_button.add_theme_color_override("font_color", Color.GREEN)
-				harvest_button.add_theme_color_override("font_hover_color", Color.GREEN)
-				harvest_button.add_theme_color_override("font_pressed_color", Color.GREEN)
-				harvest_button.add_theme_color_override("font_focus_color", Color.GREEN)
-			else:
-				harvest_button.disabled = true
-				harvest_button.modulate = Color(1, 1, 1)
-				harvest_button.remove_theme_color_override("font_color")
-				harvest_button.remove_theme_color_override("font_hover_color")
-				harvest_button.remove_theme_color_override("font_pressed_color")
-				harvest_button.remove_theme_color_override("font_focus_color")
+			style_spell_button(harvest_button, active_spell == "harvest", mana >= h_cost)
 		else:
 			harvest_button.visible = false
-	
+
 	update_legend()
 	update_dock_layout()
+
+func style_spell_button(button: Button, is_active: bool, affordable: bool):
+	const FONT_PROPS = ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]
+	if is_active:
+		button.disabled = false
+		button.modulate = Color(0.6, 1.0, 0.6) # Green
+		for prop in FONT_PROPS:
+			button.remove_theme_color_override(prop)
+	elif affordable:
+		button.disabled = false
+		button.modulate = Color(1, 1, 1)
+		for prop in FONT_PROPS:
+			button.add_theme_color_override(prop, Color.GREEN)
+	else:
+		button.disabled = true
+		button.modulate = Color(1, 1, 1) # Normal dimming handled by disabled
+		for prop in FONT_PROPS:
+			button.remove_theme_color_override(prop)
 
 func setup_legend_ui():
 	var vbox = $HUD/UIContainer/RightPanel/VBox

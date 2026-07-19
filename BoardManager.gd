@@ -35,9 +35,8 @@ func initialize_board():
 		board[r].resize(COLS)
 		for c in range(COLS):
 			var type = get_weighted_random_type()
-			# Prevent initial matches
-			while (c >= 2 and board[r][c - 1].tile_type == type and board[r][c - 2].tile_type == type) or \
-				  (r >= 2 and board[r - 1][c].tile_type == type and board[r - 2][c].tile_type == type):
+			# Prevent initial matches (diamond-aware: RED, DIAMOND, RED is a match too)
+			while creates_initial_match(r, c, type):
 				type = get_weighted_random_type()
 			
 			# Spawn and animate with staggered column heights
@@ -49,6 +48,13 @@ func initialize_board():
 				t.position.y -= stagger_offset
 				animate_tile(t, r, c)
 			
+func creates_initial_match(r: int, c: int, type: int) -> bool:
+	if c >= 2 and MatchUtils.get_common_type([board[r][c - 1].tile_type, board[r][c - 2].tile_type, type]) != -1:
+		return true
+	if r >= 2 and MatchUtils.get_common_type([board[r - 1][c].tile_type, board[r - 2][c].tile_type, type]) != -1:
+		return true
+	return false
+
 func spawn_tile(r: int, c: int, type_override = null):
 	var tile = tile_scene.instantiate()
 	

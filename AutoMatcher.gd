@@ -32,10 +32,6 @@ static func find_best_move(board_manager: BoardManager, level_manager: LevelMana
 				
 				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(r, target_c), rows, cols, level_manager)
 				if res.valid:
-					# Debug for Green
-					if res.green_size > 0:
-						print("AutoMatch: Found Green Check (G=%d) %s -> %s" % [res.green_size, Vector2i(r, c), Vector2i(r, target_c)])
-						
 					if res.green_size > best_green_size:
 						best_green_size = res.green_size
 						best_score = res.score
@@ -57,10 +53,6 @@ static func find_best_move(board_manager: BoardManager, level_manager: LevelMana
 				
 				var res = _evaluate_move(virtual_board, Vector2i(r, c), Vector2i(target_r, c), rows, cols, level_manager)
 				if res.valid:
-					# Debug for Green
-					if res.green_size > 0:
-						print("AutoMatch: Found Green Check (G=%d) %s -> %s" % [res.green_size, Vector2i(r, c), Vector2i(target_r, c)])
-						
 					if res.green_size > best_green_size:
 						best_green_size = res.green_size
 						best_score = res.score

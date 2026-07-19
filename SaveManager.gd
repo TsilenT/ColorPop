@@ -33,8 +33,21 @@ var data = {
 	}
 }
 
+var _save_queued: bool = false
+
 func _init():
 	load_game()
+
+# Coalesces bursts of mutations (e.g. per-tile diamond rewards during a
+# cascade) into a single disk write at the end of the frame.
+func queue_save():
+	if _save_queued: return
+	_save_queued = true
+	_flush_save.call_deferred()
+
+func _flush_save():
+	_save_queued = false
+	save_game()
 
 func save_game():
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -77,7 +90,7 @@ func get_gold() -> float:
 
 func add_gold(amount: float):
 	data["gold"] += amount
-	save_game()
+	queue_save()
 
 func get_diamonds() -> float:
 	return data.get("diamonds", 0.0)
@@ -85,12 +98,12 @@ func get_diamonds() -> float:
 func add_diamonds(amount: float):
 	if not "diamonds" in data: data["diamonds"] = 0
 	data["diamonds"] += amount
-	save_game()
+	queue_save()
 
 func spend_gold(amount: float) -> bool:
 	if data["gold"] >= amount:
 		data["gold"] -= amount
-		save_game()
+		queue_save()
 		return true
 	return false
 
@@ -98,7 +111,7 @@ func spend_diamonds(amount: float) -> bool:
 	if not "diamonds" in data: data["diamonds"] = 0.0
 	if data["diamonds"] >= amount:
 		data["diamonds"] -= amount
-		save_game()
+		queue_save()
 		return true
 	return false
 
@@ -110,14 +123,14 @@ func increment_upgrade(key: String, amount: int = 1):
 		data["upgrades"][key] += amount
 	else:
 		data["upgrades"][key] = amount
-	save_game()
+	queue_save()
 
 func get_setting(key: String, default = null):
 	return data["settings"].get(key, default)
 
 func set_setting(key: String, value):
 	data["settings"][key] = value
-	save_game()
+	queue_save()
 
 func get_highest_level() -> int:
 	if not "stats" in data: return 1
@@ -128,4 +141,4 @@ func update_highest_level(level: int):
 	var current = data["stats"].get("highest_level", 1)
 	if level > current:
 		data["stats"]["highest_level"] = level
-		save_game()
+		queue_save()
