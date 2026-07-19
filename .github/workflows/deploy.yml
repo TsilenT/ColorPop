@@ -22,9 +22,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4.2.2
 
-      - name: Install Godot 4.3-stable and export templates
+      - name: Install Godot 4.6.3-stable and export templates
         env:
-          GODOT_VERSION: 4.3-stable
+          GODOT_VERSION: 4.6.3-stable
         run: |
           curl --fail --location --retry 3 \
             --output godot.zip \
@@ -36,8 +36,8 @@ jobs:
             --output templates.tpz \
             "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz"
           unzip -q templates.tpz
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
-          mv templates/* "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.6.3.stable"
+          mv templates/* "$HOME/.local/share/godot/export_templates/4.6.3.stable/"
 
       - name: Import project resources
         run: godot --headless --path "$GITHUB_WORKSPACE" --import
