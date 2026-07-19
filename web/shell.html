@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black">
+		<title>$GODOT_PROJECT_NAME</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: #242424;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-progress, #status-notice, #status-play {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+
+#status-play {
+	position: absolute;
+	bottom: 12%;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 1;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	font-size: 1.25rem;
+	color: white;
+	background-color: rgba(0, 0, 0, 0.6);
+	border: 2px solid white;
+	border-radius: 2rem;
+	padding: 0.75rem 2.5rem;
+	cursor: pointer;
+}
+
+#fullscreen-button {
+	display: none;
+	position: fixed;
+	top: 0.5rem;
+	right: 0.5rem;
+	z-index: 2;
+	width: 2.5rem;
+	height: 2.5rem;
+	font-size: 1.25rem;
+	line-height: 1;
+	color: white;
+	background-color: rgba(0, 0, 0, 0.4);
+	border: 1px solid rgba(255, 255, 255, 0.6);
+	border-radius: 0.5rem;
+	cursor: pointer;
+}
+
+#rotate-overlay {
+	display: none;
+	position: fixed;
+	inset: 0;
+	z-index: 3;
+	background-color: rgba(0, 0, 0, 0.85);
+	color: white;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	font-size: 1.25rem;
+	text-align: center;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+#rotate-overlay .rotate-icon {
+	font-size: 3rem;
+}
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" src="$GODOT_SPLASH" alt="">
+			<progress id="status-progress"></progress>
+			<button id="status-play">&#9654;&nbsp;&nbsp;Tap to play</button>
+			<div id="status-notice"></div>
+		</div>
+
+		<button id="fullscreen-button" title="Fullscreen">&#x26F6;</button>
+
+		<div id="rotate-overlay">
+			<div class="rotate-icon">&#8635;</div>
+			<div>Rotate your device</div>
+		</div>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+	const statusPlay = document.getElementById('status-play');
+	const fullscreenButton = document.getElementById('fullscreen-button');
+	const rotateOverlay = document.getElementById('rotate-overlay');
+
+	const isTouch = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+	const fullscreenSupported = !!(document.documentElement.requestFullscreen
+		|| document.documentElement.webkitRequestFullscreen);
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusPlay.style.display = mode === 'play' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occured');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	function isFullscreen() {
+		return !!(document.fullscreenElement || document.webkitFullscreenElement);
+	}
+
+	// Both calls reject or throw outside a user gesture / on unsupported
+	// browsers (iPhone Safari has neither) — failure just means we keep
+	// running inside the normal page, so errors are swallowed.
+	async function enterFullscreen() {
+		const el = document.documentElement;
+		try {
+			if (el.requestFullscreen) {
+				await el.requestFullscreen({ navigationUI: 'hide' });
+			} else if (el.webkitRequestFullscreen) {
+				el.webkitRequestFullscreen();
+			}
+		} catch (err) { /* stay windowed */ }
+		try {
+			await screen.orientation.lock('landscape');
+		} catch (err) { /* orientation stays under OS control */ }
+	}
+
+	function updateOverlays() {
+		const portrait = window.matchMedia('(orientation: portrait)').matches;
+		rotateOverlay.style.display = (isTouch && portrait) ? 'flex' : 'none';
+		fullscreenButton.style.display =
+			(isTouch && fullscreenSupported && !isFullscreen() && !initializing) ? 'block' : 'none';
+	}
+
+	function startGame() {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+			updateOverlays();
+		}, displayFailureNotice);
+	}
+
+	fullscreenButton.addEventListener('click', () => {
+		enterFullscreen().then(updateOverlays);
+	});
+	document.addEventListener('fullscreenchange', updateOverlays);
+	document.addEventListener('webkitfullscreenchange', updateOverlays);
+	window.matchMedia('(orientation: portrait)').addEventListener('change', updateOverlays);
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				navigator.serviceWorker.getRegistration().then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			}).then(() => {
+				window.location.reload();
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else if (isTouch) {
+		// The play tap is the user gesture that fullscreen, orientation
+		// lock, and audio playback all require on mobile browsers.
+		setStatusMode('play');
+		statusPlay.addEventListener('click', () => {
+			enterFullscreen();
+			startGame();
+		}, { once: true });
+		updateOverlays();
+	} else {
+		startGame();
+	}
+}());
+		</script>
+	</body>
+</html>
